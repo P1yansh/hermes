@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: athena-hermes
+    runtime: python
+    buildCommand: pip install uv && uv sync
+    startCommand: uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    plan: free
+    region: oregon
+    envVars:
+      - key: DATA_SOURCE
+        value: mock
+      - key: ENV
+        value: production
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: LOCAL_LLM_URL
+        value: "http://127.0.0.1:8080/v1"
+      - key: LOCAL_LLM_MODEL
+        value: "gemma-2-9b-it"
+      - key: ELEVENLABS_VOICE_ID
+        value: "21m00Tcm4TlvDq8ikWAM"
