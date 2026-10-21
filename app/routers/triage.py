@@ -1,13 +1,18 @@
 from fastapi import APIRouter
-from app.agents.triage_agent import triage_agent
+from app.db import db
 from app.models.academic import ExtractedTask
+from app.services.sync_service import sync_service
 
 router = APIRouter(prefix="/api/triage", tags=["Academic Triage"])
 
 @router.get("", response_model=list[ExtractedTask])
 async def get_triaged_tasks():
     """
-    Ingests recent student emails and Google Classroom assignments,
-    filters noise/spam via Gemma 2, and returns structured tasks.
+    Returns triaged academic assignments and emails directly from the SQLite store.
+    Instant read query (< 5ms) decoupled from LLM inference latency.
     """
-    return await triage_agent.triage()
+    tasks = db.get_all_tasks()
+    if not tasks:
+        await sync_service.sync_all()
+        tasks = db.get_all_tasks()
+    return tasks

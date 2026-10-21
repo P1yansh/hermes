@@ -10,6 +10,8 @@ async def test_root_endpoint():
         data = res.json()
         assert data["status"] == "online"
         assert "Athena Hermes" in data["service"]
+        assert "run_mode" in data
+        assert "timezone" in data
 
 @pytest.mark.asyncio
 async def test_health_endpoint():
@@ -17,6 +19,16 @@ async def test_health_endpoint():
         res = await client.get("/health")
         assert res.status_code == 200
         assert res.json() == {"status": "healthy"}
+
+@pytest.mark.asyncio
+async def test_sync_api():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        res = await client.post("/api/sync?force=true")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "synced"
+        assert data["tasks_count"] > 0
+        assert data["opportunities_count"] > 0
 
 @pytest.mark.asyncio
 async def test_triage_api():
