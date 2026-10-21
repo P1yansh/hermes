@@ -7,8 +7,12 @@ services:
     plan: free
     region: oregon
     envVars:
+      - key: RUN_MODE
+        value: cloud_sandbox
       - key: DATA_SOURCE
         value: mock
+      - key: USER_TIMEZONE
+        value: "UTC"
       - key: ENV
         value: production
       - key: CORS_ORIGINS
