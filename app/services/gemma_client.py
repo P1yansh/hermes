@@ -17,7 +17,7 @@ class GemmaClient:
         self.api_key = api_key
         self.timeout = timeout
 
-    async def _call_chat(self, prompt: str, system: Optional[str] = None) -> Optional[str]:
+    async def _call_chat(self, prompt: str, system: Optional[str] = None, json_mode: bool = True) -> Optional[str]:
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
@@ -29,6 +29,10 @@ class GemmaClient:
             "temperature": 0.2,
             "max_tokens": 1024,
         }
+        if json_mode:
+            # llama-server compiles JSON schema into GBNF grammar at token sampling time
+            payload["response_format"] = {"type": "json_object"}
+
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
@@ -58,10 +62,9 @@ class GemmaClient:
         )
         user_prompt = f"Sender: {sender}\nSubject: {subject}\nBody:\n{body}"
 
-        response = await self._call_chat(user_prompt, system=system_prompt)
+        response = await self._call_chat(user_prompt, system=system_prompt, json_mode=True)
         if response:
             try:
-                # Extract json substring if wrapped in markdown code blocks
                 clean = re.sub(r"^```(?:json)?", "", response.strip(), flags=re.MULTILINE)
                 clean = re.sub(r"```$", "", clean.strip(), flags=re.MULTILINE)
                 return json.loads(clean.strip())
@@ -70,8 +73,8 @@ class GemmaClient:
 
         # Robust heuristic fallback for offline/test environments
         lower_text = f"{subject} {body}".lower()
-        is_spam = any(w in lower_text for w in ["sale", "hoodies", "newsletter", "movie night", "lost & found", "discount"])
-        has_due = any(w in lower_text for w in ["due", "submission", "deadline", "cutoff", "extension", "assignment", "lab"])
+        is_spam = any(w in lower_text for w in ["sale", "hoodies", "newsletter", "movie night", "lost & found", "discount", "merchandise"])
+        has_due = any(w in lower_text for w in ["due", "submission", "deadline", "cutoff", "extension", "assignment", "lab", "homework"])
         
         course_match = re.search(r"([A-Z]{2,4}\s?\d{3})", subject)
         course = course_match.group(1) if course_match else "General"
@@ -98,7 +101,7 @@ class GemmaClient:
         )
         user_prompt = f"Title: {title}\nTags: {tags}\nDescription: {description}"
 
-        response = await self._call_chat(user_prompt, system=system_prompt)
+        response = await self._call_chat(user_prompt, system=system_prompt, json_mode=True)
         if response:
             try:
                 clean = re.sub(r"^```(?:json)?", "", response.strip(), flags=re.MULTILINE)
@@ -107,13 +110,17 @@ class GemmaClient:
             except Exception:
                 pass
 
-        # Fallback scoring
-        matches = [s for s in user_skills if s.lower() in (title + description + " ".join(tags)).lower()]
-        score = min(10, 5 + len(matches) * 2)
+        # Robust skill-matching fallback
+        text_corpus = (title + " " + description + " " + " ".join(tags)).lower()
+        matched_skills = [s for s in user_skills if s.lower() in text_corpus]
+        
+        # Base score 4, each matched skill adds 2 points (capped at 10)
+        score = min(10, 4 + len(matched_skills) * 2) if user_skills else 5
+
         return {
             "relevance_score": score,
-            "reason": f"Matches your background in {', '.join(matches[:2])}" if matches else "General tech opportunity",
-            "highlight": "High prize pool and aligns with open-source systems" if score >= 8 else "Standard opportunity"
+            "reason": f"Matches skills: {', '.join(matched_skills)}" if matched_skills else "General technical opportunity",
+            "highlight": "High relevance to your background" if score >= 8 else "Standard match"
         }
 
     async def generate_briefing_script(self, panic_items: list[dict], imminent_items: list[dict], top_opp: Optional[dict]) -> str:
@@ -121,7 +128,7 @@ class GemmaClient:
         Synthesizes a 60-second natural morning speech script for ElevenLabs.
         """
         system_prompt = (
-            "You are Hermes, an Olympian academic butler with a calm, reassuring, and mildly witty tone. "
+            "You are Hermes, an academic intelligence assistant with a calm, reassuring, and direct tone. "
             "Generate a concise 60-second morning spoken briefing for the student. "
             "Highlight what is urgently due today, what is coming up tomorrow, and one exciting opportunity. "
             "Do NOT include markdown, bullet points, or stage directions. Return plain conversational text only."
@@ -132,19 +139,19 @@ class GemmaClient:
             f"Top Opportunity: {top_opp}\n"
         )
 
-        response = await self._call_chat(user_prompt, system=system_prompt)
+        response = await self._call_chat(user_prompt, system=system_prompt, json_mode=False)
         if response and len(response.strip()) > 30:
             return response.strip()
 
-        # Fallback script
+        # Deterministic humanized fallback script
         panic_text = f"You have {len(panic_items)} urgent item requiring your attention today" if panic_items else "No critical deadlines due in the next 24 hours"
         if panic_items:
             first = panic_items[0]
             panic_text += f", notably {first.get('title', 'an assignment')} in {first.get('source', 'your courses')}."
         else:
-            panic_text += ", so you can move at your own pace."
+            panic_text += ", so you have room to focus."
 
-        opp_text = f" Also, don't miss {top_opp.get('title', 'an upcoming hackathon')} with registration closing soon." if top_opp else ""
+        opp_text = f" Also, keep an eye on {top_opp.get('title', 'an upcoming hackathon')} with registration closing soon." if top_opp else ""
         return (
             f"Good morning. Here is your Hermes intelligence briefing. {panic_text}"
             f"{opp_text} Focus on high-leverage work, and let the rest wait. Have a productive day."
