@@ -4,10 +4,10 @@ from typing import Optional, Literal
 from pydantic import BaseModel, Field
 
 class UrgencyTier(str, Enum):
-    PANIC = "panic"         # < 24 hours
-    IMMINENT = "imminent"   # 24h - 72h (1 - 3 days)
-    UPCOMING = "upcoming"   # > 72h (3+ days)
-    PASSED = "passed"       # Deadline passed
+    CRITICAL_PANIC = "critical_panic"  # < 6h: "jaldi kar alsi, warna gaya bas {x} hours baki hai"
+    APPROACHING = "approaching"        # 6h - 24h: "abhi to {x} ghante hai :)"
+    CHILL = "chill"                    # > 24h: "abhi kyu karna, {x} days baki hai"
+    PASSED = "passed"                  # Passed
 
 class RadarItem(BaseModel):
     id: str
@@ -17,13 +17,14 @@ class RadarItem(BaseModel):
     deadline: datetime
     hours_remaining: float
     urgency: UrgencyTier
+    sloth_message: str
     action_url: Optional[str] = None
     priority_weight: float = 1.0  # higher = more critical
 
 class RadarSummary(BaseModel):
-    panic_count: int = 0
-    imminent_count: int = 0
-    upcoming_count: int = 0
+    critical_panic_count: int = 0
+    approaching_count: int = 0
+    chill_count: int = 0
     total_active: int = 0
 
 class RadarReport(BaseModel):

@@ -66,7 +66,9 @@ class SyncService:
             "tasks_count": len(tasks),
             "opportunities_count": len(scout_report.matches),
             "radar_total": radar_report.summary.total_active,
-            "panic_count": radar_report.summary.panic_count
+            "critical_panic_count": radar_report.summary.critical_panic_count,
+            "approaching_count": radar_report.summary.approaching_count,
+            "chill_count": radar_report.summary.chill_count
         }
 
 sync_service = SyncService()

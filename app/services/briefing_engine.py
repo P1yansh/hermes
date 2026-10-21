@@ -6,26 +6,26 @@ from app.services.gemma_client import gemma_client
 class BriefingEngine:
     @staticmethod
     async def build_briefing(radar_report: RadarReport, top_opportunity: Optional[dict] = None) -> DailyBriefing:
-        panic_items = [
+        critical_items = [
             {"title": i.title, "source": i.source, "hours_left": i.hours_remaining}
-            for i in radar_report.items if i.urgency == UrgencyTier.PANIC
+            for i in radar_report.items if i.urgency == UrgencyTier.CRITICAL_PANIC
         ]
-        imminent_items = [
+        approaching_items = [
             {"title": i.title, "source": i.source, "hours_left": i.hours_remaining}
-            for i in radar_report.items if i.urgency == UrgencyTier.IMMINENT
+            for i in radar_report.items if i.urgency == UrgencyTier.APPROACHING
         ]
 
         # Generate speech script
         script = await gemma_client.generate_briefing_script(
-            panic_items=panic_items,
-            imminent_items=imminent_items,
+            panic_items=critical_items,
+            imminent_items=approaching_items,
             top_opp=top_opportunity
         )
 
         headline = (
-            f"🚨 {len(panic_items)} Critical Deadline(s) Due in <24h"
-            if panic_items else
-            "🟢 All Clear: Move at your own pace today"
+            f"🚨 {len(critical_items)} Critical Cutoff(s) Due in <6 Hours!"
+            if critical_items else
+            (f"⚠️ {len(approaching_items)} Task(s) Due Within 24 Hours" if approaching_items else "🟢 All Clear: Abhi kyu karna, relax!")
         )
 
         return DailyBriefing(
@@ -34,7 +34,7 @@ class BriefingEngine:
             script=script,
             audio_available=False,
             audio_url=None,
-            items_covered=len(panic_items) + len(imminent_items)
+            items_covered=len(critical_items) + len(approaching_items)
         )
 
 briefing_engine = BriefingEngine()

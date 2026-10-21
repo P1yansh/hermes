@@ -4,24 +4,33 @@ from app.models.radar import RadarItem, UrgencyTier, RadarSummary, RadarReport
 
 class RadarEngine:
     @staticmethod
-    def classify_urgency(hours_remaining: float) -> UrgencyTier:
+    def classify_urgency(hours_remaining: float) -> tuple[UrgencyTier, str]:
+        """
+        Classifies deadlines into sloth-tailored urgency bands:
+        - < 6 hours: "jaldi kar alsi, warna gaya bas {x} hours baki hai"
+        - 6 to 24 hours: "abhi to {x} ghante hai :)"
+        - > 24 hours: "abhi kyu karna, {x} days baki hai"
+        """
         if hours_remaining < 0:
-            return UrgencyTier.PASSED
+            return UrgencyTier.PASSED, "deadline nikal gaya"
+        elif hours_remaining < 6.0:
+            hrs = round(hours_remaining, 1)
+            return UrgencyTier.CRITICAL_PANIC, f"jaldi kar alsi, warna gaya bas {hrs} hours baki hai"
         elif hours_remaining <= 24.0:
-            return UrgencyTier.PANIC
-        elif hours_remaining <= 72.0:
-            return UrgencyTier.IMMINENT
+            hrs = round(hours_remaining, 1)
+            return UrgencyTier.APPROACHING, f"abhi to {hrs} ghante hai :)"
         else:
-            return UrgencyTier.UPCOMING
+            days = max(1, round(hours_remaining / 24.0))
+            return UrgencyTier.CHILL, f"abhi kyu karna, {days} days baki hai"
 
     @classmethod
     def compile_radar(cls, raw_items: list[dict]) -> RadarReport:
         now = datetime.now(timezone.utc)
         items: list[RadarItem] = []
 
-        panic_count = 0
-        imminent_count = 0
-        upcoming_count = 0
+        critical_count = 0
+        approaching_count = 0
+        chill_count = 0
 
         for r in raw_items:
             # Normalize to timezone-aware UTC via configured USER_TIMEZONE
@@ -34,21 +43,21 @@ class RadarEngine:
             if hours_remaining < -2.0:
                 continue
 
-            urgency = cls.classify_urgency(hours_remaining)
+            urgency, sloth_msg = cls.classify_urgency(hours_remaining)
 
-            if urgency == UrgencyTier.PANIC:
-                panic_count += 1
-            elif urgency == UrgencyTier.IMMINENT:
-                imminent_count += 1
-            elif urgency == UrgencyTier.UPCOMING:
-                upcoming_count += 1
+            if urgency == UrgencyTier.CRITICAL_PANIC:
+                critical_count += 1
+            elif urgency == UrgencyTier.APPROACHING:
+                approaching_count += 1
+            elif urgency == UrgencyTier.CHILL:
+                chill_count += 1
 
             # Priority weight calculation
             base_weight = 2.0 if r.get("kind") == "academic_assignment" else 1.0
-            if urgency == UrgencyTier.PANIC:
-                priority_weight = base_weight * 3.0
-            elif urgency == UrgencyTier.IMMINENT:
-                priority_weight = base_weight * 1.5
+            if urgency == UrgencyTier.CRITICAL_PANIC:
+                priority_weight = base_weight * 4.0
+            elif urgency == UrgencyTier.APPROACHING:
+                priority_weight = base_weight * 2.0
             else:
                 priority_weight = base_weight
 
@@ -61,6 +70,7 @@ class RadarEngine:
                     deadline=deadline,
                     hours_remaining=hours_remaining,
                     urgency=urgency,
+                    sloth_message=sloth_msg,
                     action_url=r.get("action_url"),
                     priority_weight=priority_weight
                 )
@@ -70,9 +80,9 @@ class RadarEngine:
         items.sort(key=lambda x: x.hours_remaining)
 
         summary = RadarSummary(
-            panic_count=panic_count,
-            imminent_count=imminent_count,
-            upcoming_count=upcoming_count,
+            critical_panic_count=critical_count,
+            approaching_count=approaching_count,
+            chill_count=chill_count,
             total_active=len(items)
         )
 
