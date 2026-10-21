@@ -41,6 +41,7 @@ class Database:
                     submission_url TEXT,
                     estimated_hours REAL DEFAULT 1.0,
                     confidence REAL DEFAULT 1.0,
+                    account_source TEXT DEFAULT 'default',
                     created_at TEXT NOT NULL
                 )
             """)
@@ -56,6 +57,13 @@ class Database:
                     description TEXT NOT NULL,
                     url TEXT NOT NULL,
                     relevance_score INTEGER DEFAULT 5,
+                    mode TEXT DEFAULT 'online',
+                    city TEXT,
+                    country TEXT DEFAULT 'India',
+                    eligible INTEGER DEFAULT 1,
+                    eligibility_reason TEXT,
+                    source_inbox TEXT,
+                    match_score INTEGER,
                     updated_at TEXT NOT NULL
                 )
             """)
@@ -69,6 +77,27 @@ class Database:
                     created_at TEXT NOT NULL
                 )
             """)
+            # Migration check for existing columns
+            for col, col_type in [("account_source", "TEXT DEFAULT 'default'")]:
+                try:
+                    cursor.execute(f"ALTER TABLE tasks ADD COLUMN {col} {col_type}")
+                except sqlite3.OperationalError:
+                    pass
+
+            for col, col_type in [
+                ("mode", "TEXT DEFAULT 'online'"),
+                ("city", "TEXT"),
+                ("country", "TEXT DEFAULT 'India'"),
+                ("eligible", "INTEGER DEFAULT 1"),
+                ("eligibility_reason", "TEXT"),
+                ("source_inbox", "TEXT"),
+                ("match_score", "INTEGER")
+            ]:
+                try:
+                    cursor.execute(f"ALTER TABLE opportunities ADD COLUMN {col} {col_type}")
+                except sqlite3.OperationalError:
+                    pass
+
             conn.commit()
 
     def is_item_seen(self, item_id: str) -> bool:
@@ -98,12 +127,13 @@ class Database:
                     INSERT OR REPLACE INTO tasks (
                         id, source_type, source_id, course_or_sender, title,
                         deadline, action_required, is_urgent, submission_url,
-                        estimated_hours, confidence, created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        estimated_hours, confidence, account_source, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     task_id, t.source_type, t.source_id, t.course_or_sender, t.title,
                     deadline_iso, t.action_required, 1 if t.is_urgent else 0,
-                    t.submission_url, t.estimated_hours, t.confidence, now
+                    t.submission_url, t.estimated_hours, t.confidence,
+                    t.account_source or "default", now
                 ))
                 cursor.execute(
                     "INSERT OR IGNORE INTO seen_items (id, source_type, first_seen_at) VALUES (?, ?, ?)",
@@ -128,7 +158,8 @@ class Database:
                     is_urgent=bool(row["is_urgent"]),
                     submission_url=row["submission_url"],
                     estimated_hours=row["estimated_hours"],
-                    confidence=row["confidence"]
+                    confidence=row["confidence"],
+                    account_source=row["account_source"] if "account_source" in row.keys() else "default"
                 ))
         return tasks
 
@@ -142,11 +173,16 @@ class Database:
                 cursor.execute("""
                     INSERT OR REPLACE INTO opportunities (
                         id, title, type, organizer, deadline, prizes,
-                        tags, description, url, relevance_score, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        tags, description, url, relevance_score,
+                        mode, city, country, eligible, eligibility_reason,
+                        source_inbox, match_score, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     o.id, o.title, o.type, o.organizer, deadline_iso, o.prizes,
-                    tags_json, o.description, o.url, o.relevance_score, now
+                    tags_json, o.description, o.url, o.relevance_score,
+                    o.mode or "online", o.city, o.country or "India",
+                    1 if o.eligible else 0, o.eligibility_reason,
+                    o.source_inbox, o.match_score, now
                 ))
                 cursor.execute(
                     "INSERT OR IGNORE INTO seen_items (id, source_type, first_seen_at) VALUES (?, ?, ?)",
@@ -162,6 +198,7 @@ class Database:
             for row in cursor.fetchall():
                 deadline = datetime.fromisoformat(row["deadline"])
                 tags = json.loads(row["tags"]) if row["tags"] else []
+                keys = row.keys()
                 opps.append(OpportunityItem(
                     id=row["id"],
                     title=row["title"],
@@ -172,7 +209,14 @@ class Database:
                     tags=tags,
                     description=row["description"],
                     url=row["url"],
-                    relevance_score=row["relevance_score"]
+                    relevance_score=row["relevance_score"],
+                    mode=row["mode"] if "mode" in keys and row["mode"] else "online",
+                    city=row["city"] if "city" in keys else None,
+                    country=row["country"] if "country" in keys and row["country"] else "India",
+                    eligible=bool(row["eligible"]) if "eligible" in keys else True,
+                    eligibility_reason=row["eligibility_reason"] if "eligibility_reason" in keys else None,
+                    source_inbox=row["source_inbox"] if "source_inbox" in keys else None,
+                    match_score=row["match_score"] if "match_score" in keys else None
                 ))
         return opps
 
