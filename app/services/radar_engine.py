@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from app.config import to_utc
 from app.models.radar import RadarItem, UrgencyTier, RadarSummary, RadarReport
 
 class RadarEngine:
@@ -23,9 +24,8 @@ class RadarEngine:
         upcoming_count = 0
 
         for r in raw_items:
-            deadline = r["deadline"]
-            if deadline.tzinfo is None:
-                deadline = deadline.replace(tzinfo=timezone.utc)
+            # Normalize to timezone-aware UTC via configured USER_TIMEZONE
+            deadline = to_utc(r["deadline"])
 
             delta = deadline - now
             hours_remaining = round(delta.total_seconds() / 3600.0, 1)

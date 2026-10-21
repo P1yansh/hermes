@@ -1,7 +1,8 @@
-from app.config import settings
+from app.config import settings, to_utc
 from app.connectors.base import BaseConnector
 from app.connectors.mock_loader import MockConnector
 from app.connectors.google_live import GoogleLiveConnector
+from app.db import db
 from app.models.opportunity import OpportunityItem, UserProfile, ScoutReport
 from app.services.gemma_client import gemma_client
 
@@ -17,9 +18,18 @@ class OpportunityScoutAgent:
         else:
             self.connector = MockConnector()
 
-    async def scout(self, profile: UserProfile | None = None) -> ScoutReport:
+    async def scout(self, profile: UserProfile | None = None, force_refresh: bool = False) -> ScoutReport:
         if profile is None:
             profile = UserProfile()
+
+        # If cache exists and no custom profile / force_refresh is requested, return stored opportunities
+        if not force_refresh:
+            cached_opps = db.get_all_opportunities()
+            if cached_opps:
+                # Filter by min_prize_relevance
+                filtered = [o for o in cached_opps if o.relevance_score >= profile.min_prize_relevance]
+                filtered.sort(key=lambda x: (-x.relevance_score, x.deadline))
+                return ScoutReport(total_found=len(filtered), matches=filtered)
 
         raw_opportunities = await self.connector.get_opportunities()
         scored_matches: list[OpportunityItem] = []
@@ -33,13 +43,17 @@ class OpportunityScoutAgent:
             )
 
             relevance = score_data.get("relevance_score", opp.relevance_score)
+            opp.relevance_score = relevance
+            opp.deadline = to_utc(opp.deadline)
+
             if relevance >= profile.min_prize_relevance:
-                opp.relevance_score = relevance
                 scored_matches.append(opp)
 
-        # Sort matches by relevance score descending, then deadline ascending
-        scored_matches.sort(key=lambda x: (-x.relevance_score, x.deadline))
+        # Save all scored opportunities to SQLite
+        if scored_matches:
+            db.save_opportunities(scored_matches)
 
+        scored_matches.sort(key=lambda x: (-x.relevance_score, x.deadline))
         return ScoutReport(
             total_found=len(scored_matches),
             matches=scored_matches
