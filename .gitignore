@@ -30,6 +30,7 @@ ENV/
 .env
 *.token.json
 token.json
+tokens/
 credentials.json
 client_secret*.json
 

@@ -9,6 +9,7 @@ class EmailMessage(BaseModel):
     received_at: datetime
     body: str
     category: str = "general"
+    account_source: Optional[str] = "default"
 
 class ClassroomAssignment(BaseModel):
     id: str
@@ -19,12 +20,14 @@ class ClassroomAssignment(BaseModel):
     max_points: Optional[int] = 100
     submission_url: Optional[str] = None
     status: str = "pending"
+    account_source: Optional[str] = "default"
 
 class ClassroomCourse(BaseModel):
     id: str
     name: str
     section: Optional[str] = None
     assignments: list[ClassroomAssignment] = Field(default_factory=list)
+    account_source: Optional[str] = "default"
 
 class ExtractedTask(BaseModel):
     source_type: str  # "email" or "classroom"
@@ -37,3 +40,4 @@ class ExtractedTask(BaseModel):
     submission_url: Optional[str] = None
     estimated_hours: Optional[float] = 1.0
     confidence: float = 1.0
+    account_source: Optional[str] = "default"
