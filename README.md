@@ -11,50 +11,63 @@ Built for the **Hacktoberfest 2026 Week 3: Slow and Steady** challenge.
 I have a recurring problem every semester: I miss assignment deadlines and hackathon cutoffs because my inbox is flooded with university spam, society announcements, and course portal notifications. Important submission cutoffs sit buried beneath bookstore promotions and club flyers until someone in a group chat mentions they're finishing their submission.
 
 Hermes runs in the background and takes care of this:
-1. **Academic Triage**: Pulls Google Classroom coursework and unread emails, drops marketing noise, and runs local Gemma 2 to extract the course, title, and exact deadline timestamp into clean JSON.
-2. **Opportunity Scout**: Crawls hackathons, fellowships, and internships, then scores them against your specific technical skills (Python, systems, AI agents).
-3. **Urgency Radar**: Aggregates assignments and closing registrations into three time-to-cutoff bands:
+1. **Academic Triage Agent**: Pulls Google Classroom coursework and unread emails, drops marketing noise through a fast Stage-1 header/keyword pre-filter, and runs local Gemma 2 to extract the course, title, and exact deadline timestamp.
+2. **Opportunity Scout Agent**: Crawls hackathons, fellowships, and internships, then scores them against your specific technical skills (Python, systems, AI agents).
+3. **Decoupled SQLite Cache**: Stores seen IDs to prevent re-evaluating identical emails, making all query endpoints return in `< 5ms`.
+4. **Urgency Radar**: Aggregates assignments and closing registrations into three time-to-cutoff bands:
    - 🔴 **Panic** (`< 24 hours`)
    - 🟡 **Imminent** (`24h - 72h`)
    - 🟢 **Upcoming** (`> 72h`)
-4. **Morning Voice Briefing**: Generates a 60-second summary script and synthesizes it into an MP3 via ElevenLabs, so you can listen to your morning status without opening five course dashboards.
+5. **Morning Voice Briefing**: Generates a 60-second summary script and synthesizes it into an MP3 via ElevenLabs (with deterministic content-addressable caching to protect API quotas), so you can listen to your morning status without opening five course dashboards.
 
 ---
 
-## Why Open AI Models Matter Here
+## Two Deployment Topologies
 
-- **Student Privacy**: Academic records, professor emails, and coursework shouldn't be sent to proprietary commercial cloud LLMs. Hermes runs against open-weight Gemma 2 locally on your own machine.
-- **Zero Ongoing Cost**: Running locally on an RTX 4050 (or CPU) means no recurring token charges or subscription tiers.
-- **Offline Resilience**: The system includes deterministic heuristic parsers. Even if your internet drops or the local inference engine is paused, tests and task extractions still run.
+Hermes is built to accommodate two distinct deployment environments:
+
+1. **Local Daemon Mode (`RUN_MODE=local`, `DATA_SOURCE=live`)**
+   - Runs locally on your workstation as an Athena agent daemon.
+   - Connects to local `llama-server` on your GPU (e.g. RTX 4050 6GB) at `http://127.0.0.1:8080/v1` running open-weight `gemma-2-9b-it`.
+   - Ingests real university emails and Google Classroom tasks via OAuth2 tokens stored on your disk.
+   - Guaranteed 100% data privacy: your grades and emails never touch external AI servers.
+
+2. **Cloud Judge Sandbox (`RUN_MODE=cloud_sandbox`, `DATA_SOURCE=mock`)**
+   - Deployed on Render for Hacktoberfest judges and community testing.
+   - Uses `MockDatasetLoader` with dynamic timestamps relative to UTC `now` and deterministic fallback parsers.
+   - Allows judges to test the full multi-agent pipeline, urgency radar, and audio streaming without requiring university logins or local GPU access.
 
 ---
 
 ## System Design
 
-```
-   [ Gmail API / IMAP ]           [ Google Classroom ]
-            │                              │
-            └──────────────┬───────────────┘
-                           │
-             ┌─────────────┴─────────────┐
-             ▼                           ▼
-   [ MockDatasetLoader ]       [ GoogleLiveConnector ]
-   (Test/Judge Fixtures)       (OAuth2 Classroom & Mail)
-             │                           │
-             └─────────────┬─────────────┘
-                           ▼
-              [ Academic Triage Agent ]
-                           │
-       [ Local Gemma 2 9B via Athena llama-server ]
-                           │
-                           ▼
-               [ Urgency Radar Engine ]
-              (Sorted by hours remaining)
-                           │
-              ┌────────────┴────────────┐
-              ▼                         ▼
-   [ ElevenLabs TTS Engine ]   [ FastAPI REST Backend ]
-    (Morning MP3 Briefing)       (Render Deployment)
+```text
+  [ Gmail API / Classroom ]       [ Opportunity Feeds / Mock JSON ]
+              │                                   │
+   ┌──────────┴──────────┐                        │
+   ▼                     ▼                        ▼
+[MockDatasetLoader] [GoogleLiveConnector]   [OpportunityConnector]
+   │                     │                        │
+   └──────────┬──────────┘                        │
+              ▼                                   ▼
+   [ Academic Triage Agent ]            [ Opportunity Scout Agent ]
+   (Header Pre-filter + Regex)          (Skill & Stack Scorer)
+              │                                   │
+   [ Local Gemma 2 9B (llama-server / GBNF) ]     │
+              │                                   │
+              └─────────────────┬─────────────────┘
+                                ▼
+                    [ SQLite State & Cache ]
+                    (Deduplication & Storage)
+                                │
+                                ▼
+                     [ Urgency Radar Engine ]
+                  (Panic <24h | Imminent | Upcoming)
+                                │
+                  ┌─────────────┴─────────────┐
+                  ▼                           ▼
+       [ Briefing Engine + TTS ]    [ FastAPI REST Backend ]
+      (ElevenLabs / Local Cache)     (/radar, /triage, /scout, /sync)
 ```
 
 ---
@@ -80,11 +93,11 @@ uv sync
 # Copy environment variables
 cp .env.example .env
 
-# Start the development server
+# Start the development server (automatically runs initial sync on startup)
 uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Interactive OpenAPI docs will be available at `http://localhost:8000/docs`.
+Interactive OpenAPI documentation is available at `http://localhost:8000/docs`.
 
 ---
 
@@ -94,7 +107,10 @@ Settings are configured via `.env`:
 
 | Key | Default | Description |
 | :--- | :--- | :--- |
+| `RUN_MODE` | `local` | `local` (workstation daemon) or `cloud_sandbox` (Render demo). |
 | `DATA_SOURCE` | `mock` | `mock` uses relative time-anchored test fixtures; `live` uses Google OAuth. |
+| `USER_TIMEZONE` | `Asia/Kolkata` | Local timezone used to normalize naive email deadlines into UTC. |
+| `DATABASE_PATH` | `data/hermes.db` | Local SQLite database location. |
 | `LOCAL_LLM_URL` | `http://127.0.0.1:8080/v1` | Local OpenAI-compatible llama.cpp endpoint. |
 | `LOCAL_LLM_MODEL` | `gemma-2-9b-it` | Model identifier for local prompt routing. |
 | `ELEVENLABS_API_KEY`| `""` | ElevenLabs API key (falls back to local audio if omitted). |
@@ -104,25 +120,26 @@ Settings are configured via `.env`:
 
 ## Running Tests
 
-Run the non-interactive test suite:
+Run the test suite with `uv`:
 
 ```bash
 uv run pytest -v
 ```
 
-All 13 tests cover the mock loader, urgency radar calculation, triage agent, and HTTP endpoints.
+All 22 unit and integration tests cover SQLite persistence, Stage-1 triage filtering, opportunity matching edge cases, urgency radar calculations, and HTTP endpoints.
 
 ---
 
 ## API Endpoints
 
-- `GET /` — System status, active model, and health info.
-- `GET /api/triage` — Extracted academic assignments and email tasks.
+- `GET /` — System status, active model, timezone, and run mode.
+- `POST /api/sync` — Triggers an on-demand ingestion and triage sync (`force=true` supported).
+- `GET /api/triage` — Extracted academic assignments and email tasks from SQLite cache.
 - `GET /api/scout` — Scored hackathons and internships.
 - `POST /api/scout` — Filter opportunities with a custom developer skill profile.
-- `GET /api/radar` — Unified urgency matrix sorted by time-to-deadline.
+- `GET /api/radar` — Unified urgency matrix sorted chronologically.
 - `GET /api/briefing` — Conversational morning script generated from active radar.
-- `GET /api/briefing/audio` — Streams or downloads the synthesized ElevenLabs MP3.
+- `GET /api/briefing/audio` — Streams or downloads the content-cached ElevenLabs MP3.
 
 ---
 
