@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Optional, Literal
 from pydantic import BaseModel, Field
 
-OpportunityType = Literal["hackathon", "internship", "grant", "academic_program"]
+OpportunityType = Literal["hackathon", "internship", "grant", "academic_program", "workshop"]
 
 class OpportunityItem(BaseModel):
     id: str
@@ -15,6 +15,13 @@ class OpportunityItem(BaseModel):
     description: str
     url: str
     relevance_score: int = 5
+    mode: Optional[str] = "online" # "online", "offline", "hybrid"
+    city: Optional[str] = None
+    country: Optional[str] = "India"
+    eligible: bool = True
+    eligibility_reason: Optional[str] = None
+    source_inbox: Optional[str] = None
+    match_score: Optional[int] = None
 
 class UserProfile(BaseModel):
     name: str = "P1yansh"

@@ -20,9 +20,16 @@ class Settings(BaseModel):
     # Persistence
     DATABASE_PATH: str = os.getenv("DATABASE_PATH", str(BASE_DIR / "data" / "hermes.db"))
 
-    # Athena Local Inference (llama-server running Gemma 2)
+    # Multi-Account & Location Profiles
+    ACCOUNTS_CONFIG_PATH: str = os.getenv("ACCOUNTS_CONFIG_PATH", str(BASE_DIR / "config" / "accounts.json"))
+    TOKENS_DIR: str = os.getenv("TOKENS_DIR", str(BASE_DIR / "tokens"))
+    USER_CITY: str = os.getenv("USER_CITY", "lucknow")
+    USER_STATE: str = os.getenv("USER_STATE", "uttar pradesh")
+    USER_COUNTRY: str = os.getenv("USER_COUNTRY", "india")
+
+    # Athena Local Inference (llama-server running Gemma 3 / 2)
     LOCAL_LLM_URL: str = os.getenv("LOCAL_LLM_URL", "http://127.0.0.1:8080/v1")
-    LOCAL_LLM_MODEL: str = os.getenv("LOCAL_LLM_MODEL", "gemma-2-9b-it")
+    LOCAL_LLM_MODEL: str = os.getenv("LOCAL_LLM_MODEL", "gemma-3-4b-it")
     LOCAL_LLM_API_KEY: str = os.getenv("LOCAL_LLM_API_KEY", "sk-athena-local")
 
     # ElevenLabs Audio
