@@ -14,11 +14,12 @@ Hermes runs in the background and takes care of this:
 1. **Academic Triage Agent**: Pulls Google Classroom coursework and unread emails, drops marketing noise through a fast Stage-1 header/keyword pre-filter, and runs local Gemma 2 to extract the course, title, and exact deadline timestamp.
 2. **Opportunity Scout Agent**: Crawls hackathons, fellowships, and internships, then scores them against your specific technical skills (Python, systems, AI agents).
 3. **Decoupled SQLite Cache**: Stores seen IDs to prevent re-evaluating identical emails, making all query endpoints return in `< 5ms`.
-4. **Urgency Radar**: Aggregates assignments and closing registrations into three time-to-cutoff bands:
-   - 🔴 **Panic** (`< 24 hours`)
-   - 🟡 **Imminent** (`24h - 72h`)
-   - 🟢 **Upcoming** (`> 72h`)
+4. **Sloth Urgency Radar**: Aggregates assignments and closing registrations into three time-to-cutoff bands with honest status quotes:
+   - 🔴 **Panic** (`< 6 hours`): *"jaldi kar alsi, warna gaya bas {x} hours baki hai"*
+   - 🟡 **Approaching** (`6h - 24 hours`): *"abhi to {x} ghante hai :)"*
+   - 🟢 **Chill** (`> 24 hours`): *"abhi kyu karna, {x} days baki hai"*
 5. **Morning Voice Briefing**: Generates a 60-second summary script and synthesizes it into an MP3 via ElevenLabs (with deterministic content-addressable caching to protect API quotas), so you can listen to your morning status without opening five course dashboards.
+6. **Embedded Dark Dashboard**: A single-page, glassmorphic UI served directly by FastAPI at `http://localhost:8000/`, with one-click inbox syncing, urgency swimlanes, and an inline audio briefing player.
 
 ---
 
@@ -62,7 +63,7 @@ Hermes is built to accommodate two distinct deployment environments:
                                 │
                                 ▼
                      [ Urgency Radar Engine ]
-                  (Panic <24h | Imminent | Upcoming)
+                  (Panic <6h | Approaching | Chill)
                                 │
                   ┌─────────────┴─────────────┐
                   ▼                           ▼
@@ -132,7 +133,7 @@ All 22 unit and integration tests cover SQLite persistence, Stage-1 triage filte
 
 ## API Endpoints
 
-- `GET /` — System status, active model, timezone, and run mode.
+- `GET /` — Serves the embedded single-page dashboard UI (HTML) or returns system health/metadata (JSON).
 - `POST /api/sync` — Triggers an on-demand ingestion and triage sync (`force=true` supported).
 - `GET /api/triage` — Extracted academic assignments and email tasks from SQLite cache.
 - `GET /api/scout` — Scored hackathons and internships.
