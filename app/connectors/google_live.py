@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from app.config import settings
+from app.config import settings, BASE_DIR
 from app.connectors.base import BaseConnector
 from app.connectors.mock_loader import MockConnector
 from app.models.academic import EmailMessage, ClassroomCourse, ClassroomAssignment
@@ -32,9 +32,15 @@ class GoogleLiveConnector(BaseConnector):
         token_path: Optional[str] = None,
         accounts_config_path: Optional[str] = None,
     ):
-        self.credentials_path = Path(credentials_path or settings.GOOGLE_CREDENTIALS_PATH)
-        self.accounts_config_path = Path(accounts_config_path or settings.ACCOUNTS_CONFIG_PATH)
-        self.default_token_path = Path(token_path or settings.GOOGLE_TOKEN_PATH)
+        creds_p = Path(credentials_path or settings.GOOGLE_CREDENTIALS_PATH)
+        self.credentials_path = creds_p if creds_p.is_absolute() else BASE_DIR / creds_p
+
+        acc_p = Path(accounts_config_path or settings.ACCOUNTS_CONFIG_PATH)
+        self.accounts_config_path = acc_p if acc_p.is_absolute() else BASE_DIR / acc_p
+
+        tok_p = Path(token_path or settings.GOOGLE_TOKEN_PATH)
+        self.default_token_path = tok_p if tok_p.is_absolute() else BASE_DIR / tok_p
+
         self._fallback = MockConnector()
         self.accounts = self._load_accounts()
 
@@ -71,7 +77,8 @@ class GoogleLiveConnector(BaseConnector):
             from google_auth_oauthlib.flow import InstalledAppFlow
             from google.auth.transport.requests import Request
 
-            token_path = Path(account.get("token_file", self.default_token_path))
+            token_raw = Path(account.get("token_file", self.default_token_path))
+            token_path = token_raw if token_raw.is_absolute() else BASE_DIR / token_raw
             scopes = self._get_scopes_for_account(account)
 
             creds = None
