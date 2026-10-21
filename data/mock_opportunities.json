@@ -1,0 +1,50 @@
+[
+  {
+    "id": "opp_001",
+    "title": "Hacktoberfest 2026 Open-Source AI Challenge: Slow and Steady",
+    "type": "hackathon",
+    "organizer": "DEV Community & Major League Hacking",
+    "deadline_hours_from_now": 96,
+    "prizes": "$2,850 USD across 21 winners ($250 grand prize, $200 featured, $100 partner prizes)",
+    "tags": ["open-source", "open-weights", "gemma", "render", "elevenlabs", "local-ai"],
+    "description": "Build an open-source AI project that automates dread or rewards laziness. Channel your inner sloth using open weights and agent frameworks.",
+    "url": "https://dev.to/challenges/hacktoberfest-week3-2026-10-19",
+    "relevance_score": 10
+  },
+  {
+    "id": "opp_002",
+    "title": "Google Summer of Code (GSoC) 2027 Mentor Organization Applications",
+    "type": "academic_program",
+    "organizer": "Google Open Source",
+    "deadline_hours_from_now": 340,
+    "prizes": "Global stipend & open-source mentorship",
+    "tags": ["open-source", "internship", "mentorship", "compiler", "systems"],
+    "description": "Open-source contributor stipends for university students working on foundational systems and toolchains.",
+    "url": "https://summerofcode.withgoogle.com",
+    "relevance_score": 9
+  },
+  {
+    "id": "opp_003",
+    "title": "Autonomous Systems Research Internship (Summer 2027)",
+    "type": "internship",
+    "organizer": "Max Planck Institute for Informatics",
+    "deadline_hours_from_now": 180,
+    "prizes": "Full research stipend + relocation allowance",
+    "tags": ["distributed-systems", "ai-agents", "research", "c++", "python"],
+    "description": "Undergraduate research internship investigating local agentic reasoning and distributed consensus protocols.",
+    "url": "https://www.mpi-inf.mpg.de/careers/internships",
+    "relevance_score": 9
+  },
+  {
+    "id": "opp_004",
+    "title": "Global FinTech Blockchain Hackathon 2026",
+    "type": "hackathon",
+    "organizer": "FinTech Alliance",
+    "deadline_hours_from_now": 480,
+    "prizes": "$10,000 prize pool",
+    "tags": ["solidity", "web3", "defi", "smart-contracts"],
+    "description": "Build decentralized finance protocols and algorithmic trading smart contracts.",
+    "url": "https://fintechhack.example.com",
+    "relevance_score": 4
+  }
+]

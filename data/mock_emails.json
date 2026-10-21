@@ -1,0 +1,42 @@
+[
+  {
+    "id": "email_001",
+    "sender": "Prof. Alan Turing <aturing@university.edu>",
+    "subject": "CS401: Distributed Systems - Lab 3 Submission Cutoff Tonight",
+    "received_hours_ago": 2,
+    "body": "Dear students,\n\nThis is a final reminder that Lab 3 (Raft Consensus Implementation) is due tonight at 11:59 PM. Late submissions will receive a 20% penalty per day. Ensure your test cases pass the grade-runner script at https://grades.university.edu/cs401/lab3.\n\nBest,\nProf. Turing",
+    "category": "academic"
+  },
+  {
+    "id": "email_002",
+    "sender": "Campus Bookstore <promotions@campusbooks.com>",
+    "subject": "Flash Sale! 30% off all university hoodies and mugs this week!",
+    "received_hours_ago": 5,
+    "body": "Stop by the student union today and grab your favorite university merchandise at 30% off. Offer valid until Friday while supplies last. Not applicable to textbooks.",
+    "category": "spam_promo"
+  },
+  {
+    "id": "email_003",
+    "sender": "Dr. Leslie Lamport <llamport@university.edu>",
+    "subject": "MATH302: Midterm Exam Date Shifted & Practice Problem Set",
+    "received_hours_ago": 14,
+    "body": "Hello Class,\n\nDue to the symposium next week, our Midterm Exam will be held on Thursday, October 29. Furthermore, Problem Set 4 has been released and is due on Monday at 5:00 PM. Access the problems on the course portal: https://math.university.edu/math302/ps4.\n\nRegards,\nDr. Lamport",
+    "category": "academic"
+  },
+  {
+    "id": "email_004",
+    "sender": "Student Council <newsletter@studentcouncil.org>",
+    "subject": "Weekly Campus Digest: Movie Night, Yoga Club, and Lost & Found",
+    "received_hours_ago": 20,
+    "body": "Hey everyone! Join us for movie night this Friday at 8 PM in the amphitheater. Popcorn will be provided. Also, check out the lost & found in room 104 if you lost an umbrella last Tuesday.",
+    "category": "campus_noise"
+  },
+  {
+    "id": "email_005",
+    "sender": "Teaching Assistant John <ta-cs205@university.edu>",
+    "subject": "CS205: Homework 2 Extension Granted",
+    "received_hours_ago": 8,
+    "body": "Hi all,\n\nSeveral students asked for extra time due to server maintenance yesterday. Homework 2 deadline is officially extended by 24 hours. The new deadline is tomorrow at 6:00 PM sharp. Submit on Gradescope: https://gradescope.com/courses/cs205.\n\nThanks,\nJohn (TA)",
+    "category": "academic"
+  }
+]

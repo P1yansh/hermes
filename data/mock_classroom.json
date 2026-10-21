@@ -1,0 +1,59 @@
+[
+  {
+    "course_id": "course_101",
+    "course_name": "CS401: Distributed Systems",
+    "section": "Autumn 2026",
+    "assignments": [
+      {
+        "id": "cw_001",
+        "title": "Lab 3: Raft Consensus Engine",
+        "description": "Implement leader election and log replication in Python/Go. Run non-interactive tests against failure scenarios.",
+        "due_hours_from_now": 6,
+        "max_points": 100,
+        "submission_url": "https://classroom.google.com/c/CS401/a/cw_001",
+        "status": "pending"
+      },
+      {
+        "id": "cw_002",
+        "title": "Written Assignment 2: Paxos vs Raft Formal Proofs",
+        "description": "Answer questions 1-5 regarding state machine safety guarantees.",
+        "due_hours_from_now": 96,
+        "max_points": 50,
+        "submission_url": "https://classroom.google.com/c/CS401/a/cw_002",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "course_id": "course_202",
+    "course_name": "CS315: Compiler Design",
+    "section": "Autumn 2026",
+    "assignments": [
+      {
+        "id": "cw_003",
+        "title": "Project Milestone 1: AST Parser and Symbol Table",
+        "description": "Construct recursive descent parser and emit AST nodes with location tokens.",
+        "due_hours_from_now": 28,
+        "max_points": 150,
+        "submission_url": "https://classroom.google.com/c/CS315/a/cw_003",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "course_id": "course_303",
+    "course_name": "MATH302: Applied Probability",
+    "section": "Autumn 2026",
+    "assignments": [
+      {
+        "id": "cw_004",
+        "title": "Problem Set 4: Markov Chains & Stationary Distributions",
+        "description": "Solve problem set exercises 4.1 through 4.8 from the textbook.",
+        "due_hours_from_now": 72,
+        "max_points": 50,
+        "submission_url": "https://classroom.google.com/c/MATH302/a/cw_004",
+        "status": "pending"
+      }
+    ]
+  }
+]
