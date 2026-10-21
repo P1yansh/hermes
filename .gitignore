@@ -33,6 +33,11 @@ token.json
 credentials.json
 client_secret*.json
 
+# Databases
+*.db
+data/*.db
+data/hermes.db
+
 # IDE
 .idea/
 .vscode/

@@ -1,5 +1,7 @@
 import os
+from datetime import datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
@@ -7,11 +9,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
 class Settings(BaseModel):
-    # App
+    # App & Runtime Topology
     PROJECT_NAME: str = "Athena Hermes"
-    VERSION: str = "0.1.0"
+    VERSION: str = "0.2.0"
     ENV: str = os.getenv("ENV", "development")
-    DATA_SOURCE: str = os.getenv("DATA_SOURCE", "mock").lower()
+    RUN_MODE: str = os.getenv("RUN_MODE", "local").lower() # "local" (Athena daemon) or "cloud_sandbox" (Render demo)
+    DATA_SOURCE: str = os.getenv("DATA_SOURCE", "mock").lower() # "mock" or "live"
+    USER_TIMEZONE: str = os.getenv("USER_TIMEZONE", "Asia/Kolkata")
+
+    # Persistence
+    DATABASE_PATH: str = os.getenv("DATABASE_PATH", str(BASE_DIR / "data" / "hermes.db"))
 
     # Athena Local Inference (llama-server running Gemma 2)
     LOCAL_LLM_URL: str = os.getenv("LOCAL_LLM_URL", "http://127.0.0.1:8080/v1")
@@ -35,3 +42,13 @@ class Settings(BaseModel):
     CORS_ORIGINS: list[str] = [origin.strip() for origin in os.getenv("CORS_ORIGINS", "*").split(",")]
 
 settings = Settings()
+
+def to_utc(dt: datetime) -> datetime:
+    """Normalize any naive or local datetime into a timezone-aware UTC datetime."""
+    if dt.tzinfo is None:
+        try:
+            tz = ZoneInfo(settings.USER_TIMEZONE)
+            dt = dt.replace(tzinfo=tz)
+        except Exception:
+            dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
