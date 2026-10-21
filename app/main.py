@@ -1,10 +1,15 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from pathlib import Path
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.db import db
 from app.routers import triage, scout, radar, briefing, sync
 from app.services.sync_service import sync_service
+
+STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -28,7 +33,7 @@ app = FastAPI(
         "- **Stage-1 Pre-Filter**: Instant spam/promotions drop before local LLM inference.\n"
         "- **Academic Triage**: Extracts actionable deadlines from Google Classroom and email inboxes.\n"
         "- **Opportunity Scout**: Discovers relevant hackathons, internships, and grants matching your developer profile.\n"
-        "- **Urgency Radar**: Consolidates deadlines into Panic (<24h), Imminent (1-3d), and Upcoming bands.\n"
+        "- **Urgency Radar**: Consolidates deadlines into Panic (<6h), Approaching (6-24h), and Chill (>24h) bands.\n"
         "- **ElevenLabs Audio**: Content-addressable cached voice briefing so you never miss a cutoff."
     ),
     docs_url="/docs",
@@ -44,6 +49,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount Static Files
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
 # Register Routers
 app.include_router(sync.router)
 app.include_router(triage.router)
@@ -51,8 +60,17 @@ app.include_router(scout.router)
 app.include_router(radar.router)
 app.include_router(briefing.router)
 
-@app.get("/", tags=["Health & Status"])
-async def root():
+@app.get("/", tags=["UI & Health"])
+async def root(request: Request):
+    """
+    If requested by a browser (Accept: text/html), serves the embedded dashboard UI.
+    Otherwise returns system metadata JSON for API consumers and test suites.
+    """
+    accept = request.headers.get("accept", "")
+    index_file = STATIC_DIR / "index.html"
+    if "text/html" in accept and index_file.exists():
+        return FileResponse(index_file)
+
     return {
         "status": "online",
         "service": settings.PROJECT_NAME,
@@ -66,6 +84,6 @@ async def root():
         "docs": "/docs"
     }
 
-@app.get("/health", tags=["Health & Status"])
+@app.get("/health", tags=["UI & Health"])
 async def health_check():
     return {"status": "healthy"}
