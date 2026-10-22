@@ -74,7 +74,6 @@ class GoogleLiveConnector(BaseConnector):
     def _get_credentials_for_account(self, account: dict):
         try:
             from google.oauth2.credentials import Credentials
-            from google_auth_oauthlib.flow import InstalledAppFlow
             from google.auth.transport.requests import Request
 
             token_raw = Path(account.get("token_file", self.default_token_path))
@@ -85,16 +84,22 @@ class GoogleLiveConnector(BaseConnector):
             if token_path.exists():
                 creds = Credentials.from_authorized_user_file(str(token_path), scopes)
 
-            if not creds or not creds.valid:
-                if creds and creds.expired and creds.refresh_token:
-                    creds.refresh(Request())
-                elif self.credentials_path.exists():
-                    token_path.parent.mkdir(parents=True, exist_ok=True)
-                    flow = InstalledAppFlow.from_client_secrets_file(str(self.credentials_path), scopes)
-                    creds = flow.run_local_server(port=0)
-                    with open(token_path, "w", encoding="utf-8") as token_file:
-                        token_file.write(creds.to_json())
-            return creds
+            if creds:
+                if creds.expired and creds.refresh_token:
+                    try:
+                        creds.refresh(Request())
+                        with open(token_path, "w", encoding="utf-8") as tf:
+                            tf.write(creds.to_json())
+                    except Exception as re:
+                        logger.warning(f"Could not refresh token for {account.get('id')}: {re}")
+                if creds.valid:
+                    return creds
+
+            logger.info(
+                f"Account '{account.get('id')}' is not authenticated (missing or invalid {token_path.name}). "
+                "Run 'uv run python scripts/auth_google.py' to generate token."
+            )
+            return None
         except Exception as e:
             logger.debug(f"Could not load Google credentials for account {account.get('id')}: {e}")
             return None
@@ -156,10 +161,13 @@ class GoogleLiveConnector(BaseConnector):
             except Exception as e:
                 logger.warning(f"Failed to fetch emails for account {acc_id}: {e}")
 
+        if settings.DATA_SOURCE == "live":
+            return all_emails
+
         if any_success and all_emails:
             return all_emails
 
-        # Fallback to Mock if live accounts have no valid credentials yet
+        # Fallback to Mock only when in mock mode or testing
         return await self._fallback.get_recent_emails(max_results)
 
     async def get_classroom_courses(self) -> list[ClassroomCourse]:
@@ -227,12 +235,17 @@ class GoogleLiveConnector(BaseConnector):
             except Exception as e:
                 logger.warning(f"Failed to fetch classroom courses for account {acc_id}: {e}")
 
+        if settings.DATA_SOURCE == "live":
+            return all_courses
+
         if any_success and all_courses:
             return all_courses
 
         return await self._fallback.get_classroom_courses()
 
     async def get_opportunities(self) -> list[OpportunityItem]:
+        if settings.DATA_SOURCE == "live":
+            return []
         return await self._fallback.get_opportunities()
 
 MultiAccountGoogleConnector = GoogleLiveConnector

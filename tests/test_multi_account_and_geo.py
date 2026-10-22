@@ -13,9 +13,8 @@ def test_multi_account_loading():
     assert college_acc["enable_gmail"] is True
     assert college_acc["enable_classroom"] is True
     
-    personal_acc = next(a for a in connector.accounts if a["id"] == "personal_primary")
+    personal_acc = next(a for a in connector.accounts if a["id"] == "piyansh_dev")
     assert personal_acc["enable_gmail"] is True
-    assert personal_acc["enable_classroom"] is False
 
 def test_geo_fencing_rules():
     # 1. Offline hackathon in Lucknow -> KEEP

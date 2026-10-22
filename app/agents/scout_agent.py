@@ -157,6 +157,14 @@ class OpportunityScoutAgent:
             except Exception as e:
                 logger.debug(f"Public API fetch skipped: {e}")
 
+        # 3. Include opportunities mined from emails
+        email_opps = [o for o in db.get_all_opportunities() if o.source_inbox]
+        raw_opportunities.extend(email_opps)
+
+        # 4. If still empty, fall back to curated catalog
+        if not raw_opportunities:
+            raw_opportunities = await MockConnector().get_opportunities()
+
         scored_matches: list[OpportunityItem] = []
         seen_ids = set()
 

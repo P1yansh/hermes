@@ -5,7 +5,7 @@ from app.connectors.mock_loader import MockConnector
 @pytest.mark.asyncio
 async def test_triage_agent_execution():
     agent = AcademicTriageAgent(connector=MockConnector())
-    tasks = await agent.triage()
+    tasks = await agent.triage(force_refresh=True)
 
     assert len(tasks) > 0
     # Check that classroom assignments were extracted

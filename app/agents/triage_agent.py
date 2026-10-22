@@ -156,7 +156,7 @@ class AcademicTriageAgent:
 
             if extraction.get("has_action") and not extraction.get("is_spam"):
                 now = datetime.now(timezone.utc)
-                deadline_text = extraction.get("deadline_text", "").lower()
+                deadline_text = (extraction.get("deadline_text") or "").lower()
                 if "tonight" in deadline_text:
                     approx_deadline = now.replace(hour=23, minute=59, second=0)
                 elif "tomorrow" in deadline_text:
@@ -168,13 +168,13 @@ class AcademicTriageAgent:
                     ExtractedTask(
                         source_type="email",
                         source_id=msg.id,
-                        course_or_sender=extraction.get("course", msg.sender),
-                        title=extraction.get("title", msg.subject),
+                        course_or_sender=extraction.get("course") or msg.sender,
+                        title=extraction.get("title") or msg.subject,
                         deadline=to_utc(approx_deadline),
-                        action_required=extraction.get("action_required", "Check email instructions"),
+                        action_required=extraction.get("action_required") or "Check email instructions",
                         is_urgent=True if "tonight" in deadline_text else False,
                         submission_url=None,
-                        estimated_hours=extraction.get("estimated_hours", 1.5),
+                        estimated_hours=float(extraction.get("estimated_hours") or 1.5),
                         confidence=0.9,
                         account_source=msg.account_source or "default"
                     )

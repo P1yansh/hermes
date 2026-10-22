@@ -41,7 +41,14 @@ def main():
     with open(accounts_file, "r", encoding="utf-8") as f:
         accounts = json.load(f)
 
-    print(f"\nLoaded {len(accounts)} configured accounts from {accounts_file.name}:")
+    target_acc = sys.argv[1] if len(sys.argv) > 1 else None
+    if target_acc:
+        accounts = [a for a in accounts if a.get("id") == target_acc]
+        if not accounts:
+            print(f"[ERROR] No account with id '{target_acc}' found in {accounts_file.name}")
+            sys.exit(1)
+
+    print(f"\nLoaded {len(accounts)} configured account(s) to process:")
     for idx, acc in enumerate(accounts, 1):
         services = []
         if acc.get("enable_gmail"):
