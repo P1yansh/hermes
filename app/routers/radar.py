@@ -11,9 +11,10 @@ async def get_urgency_radar():
     """
     Compiles Academic Triage assignments and Opportunity Scout closing dates
     from persistent SQLite state into unified chronological urgency bands:
-    - 🔴 Panic: < 24 hours
-    - 🟡 Imminent: 24 - 72 hours
-    - 🟢 Upcoming: > 72 hours
+    - 🔴 Panic: < 6 hours
+    - 🟡 Imminent: 6 - 24 hours
+    - 🟢 Upcoming: > 24 hours
+    - 📋 Watchlist: Actionable items with unconfirmed cutoffs
     """
     tasks = db.get_all_tasks()
     opps = db.get_all_opportunities()
@@ -25,15 +26,17 @@ async def get_urgency_radar():
 
     raw_items: list[dict] = []
     for t in tasks:
-        if t.deadline:
-            raw_items.append({
-                "id": f"academic_{t.source_id}",
-                "kind": "academic_assignment",
-                "title": t.title,
-                "source": t.course_or_sender,
-                "deadline": t.deadline,
-                "action_url": t.submission_url
-            })
+        raw_items.append({
+            "id": f"academic_{t.source_id}",
+            "kind": "academic_assignment",
+            "title": t.title,
+            "source": t.course_or_sender,
+            "deadline": t.deadline,
+            "has_explicit_deadline": t.has_explicit_deadline,
+            "action_url": t.submission_url,
+            "account_source": t.account_source,
+            "note": t.action_required
+        })
 
     for o in opps:
         raw_items.append({
@@ -42,7 +45,10 @@ async def get_urgency_radar():
             "title": f"Registration: {o.title}",
             "source": o.organizer,
             "deadline": o.deadline,
-            "action_url": o.url
+            "has_explicit_deadline": o.has_explicit_deadline,
+            "action_url": o.url,
+            "account_source": o.source_inbox,
+            "note": f"{o.type.capitalize()} • {o.eligibility_reason or o.mode or 'Online'}"
         })
 
     return radar_engine.compile_radar(raw_items)

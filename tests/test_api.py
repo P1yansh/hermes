@@ -56,6 +56,8 @@ async def test_radar_api():
         data = res.json()
         assert "summary" in data
         assert "items" in data
+        assert "watchlist" in data
+        assert "watchlist_count" in data["summary"]
         assert data["summary"]["total_active"] > 0
 
 @pytest.mark.asyncio

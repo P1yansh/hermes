@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 from typing import Optional
 from app.config import settings, to_utc
 from app.connectors.base import BaseConnector
@@ -7,6 +8,7 @@ from app.connectors.google_live import GoogleLiveConnector
 from app.connectors.opportunity_fetcher import fetch_all_public_opportunities
 from app.db import db
 from app.models.opportunity import OpportunityItem, UserProfile, ScoutReport
+from app.tools.deadline_search import deadline_search_tool
 
 logger = logging.getLogger(__name__)
 
@@ -133,6 +135,8 @@ class OpportunityScoutAgent:
         if profile is None:
             profile = UserProfile()
 
+        far_future = datetime.max.replace(tzinfo=timezone.utc)
+
         # Check cached opportunities
         if not force_refresh:
             cached_opps = db.get_all_opportunities()
@@ -143,7 +147,7 @@ class OpportunityScoutAgent:
                     score_opportunity(opp, profile.skills)
                     if opp.eligible and opp.relevance_score >= profile.min_prize_relevance:
                         scored_cached.append(opp)
-                scored_cached.sort(key=lambda x: (-(x.match_score or x.relevance_score * 10), x.deadline))
+                scored_cached.sort(key=lambda x: (-(x.match_score or x.relevance_score * 10), x.deadline or far_future))
                 return ScoutReport(total_found=len(scored_cached), matches=scored_cached)
 
         # 1. Fetch from primary connector
@@ -174,7 +178,18 @@ class OpportunityScoutAgent:
             seen_ids.add(opp.id)
 
             score_data = score_opportunity(opp, profile.skills)
-            opp.deadline = to_utc(opp.deadline)
+            opp.deadline = to_utc(opp.deadline) if opp.deadline else None
+
+            # Attempt autonomous web search if deadline is missing and opportunity is eligible
+            if opp.deadline is None and opp.eligible:
+                resolved_deadline, has_deadline = await deadline_search_tool.resolve_deadline(opp.title)
+                if resolved_deadline:
+                    opp.deadline = resolved_deadline
+                    opp.has_explicit_deadline = True
+                else:
+                    opp.has_explicit_deadline = False
+            else:
+                opp.has_explicit_deadline = (opp.deadline is not None)
 
             # Persist all opportunities to DB with eligibility state
             scored_matches.append(opp)
@@ -188,7 +203,7 @@ class OpportunityScoutAgent:
             o for o in scored_matches
             if o.eligible and o.relevance_score >= profile.min_prize_relevance
         ]
-        eligible_matches.sort(key=lambda x: (-(x.match_score or x.relevance_score * 10), x.deadline))
+        eligible_matches.sort(key=lambda x: (-(x.match_score or x.relevance_score * 10), x.deadline or far_future))
 
         return ScoutReport(
             total_found=len(eligible_matches),

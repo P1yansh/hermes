@@ -31,7 +31,9 @@ class MockConnector(BaseConnector):
                     subject=item["subject"],
                     received_at=received_at,
                     body=item["body"],
-                    category=item.get("category", "general")
+                    category=item.get("category", "general"),
+                    thread_id=item.get("thread_id", f"mock_th_{item['id']}"),
+                    internal_date=int(received_at.timestamp() * 1000)
                 )
             )
         return emails

@@ -1,5 +1,6 @@
 import json
 import re
+from datetime import datetime, timezone
 from typing import Optional
 import httpx
 from app.config import settings
@@ -26,11 +27,10 @@ class GemmaClient:
         payload = {
             "model": self.model,
             "messages": messages,
-            "temperature": 0.2,
+            "temperature": 0.1,
             "max_tokens": 1024,
         }
         if json_mode:
-            # llama-server compiles JSON schema into GBNF grammar at token sampling time
             payload["response_format"] = {"type": "json_object"}
 
         headers = {
@@ -48,50 +48,272 @@ class GemmaClient:
             return None
         return None
 
-    async def extract_email_task(self, sender: str, subject: str, body: str) -> dict:
+    async def extract_email_task(
+        self,
+        sender: str,
+        subject: str,
+        body: str,
+        email_received_at_ist: Optional[str] = None
+    ) -> dict:
         """
-        Uses Gemma 2 to extract actionable deadlines from emails.
-        Falls back to rule-based parser if local LLM is unreachable.
+        4-Class Few-Shot Discrimination Engine with Relative Date Anchoring.
+        Classifies incoming emails into:
+          - ACADEMIC_DEADLINE
+          - OPPORTUNITY_DEADLINE
+          - INFORMATIONAL_ALERT
+          - SPAM_NOISE
         """
+        anchor = email_received_at_ist or datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
         system_prompt = (
-            "You are Hermes, an autonomous academic assistant. "
-            "Analyze the following student email. Determine if it contains an academic action item or deadline. "
-            "Respond ONLY in valid JSON matching this schema: "
-            "{\"has_action\": bool, \"is_spam\": bool, \"course\": str, \"title\": str, "
-            "\"deadline_text\": str, \"action_required\": str, \"estimated_hours\": float}"
+            "You are Hermes, an autonomous intelligence classifier for student and developer inboxes.\n"
+            f"EMAIL RECEIVED TIMESTAMP CONTEXT: {anchor}\n"
+            "CRITICAL TIME RULE: All relative temporal phrases ('tomorrow', 'tonight', 'in 2 days', 'due Friday') "
+            f"MUST be calculated relative to {anchor}, NEVER relative to the current wall-clock date.\n\n"
+            "Classify the email into exactly one of four categories:\n"
+            "1. 'ACADEMIC_DEADLINE': University course homework, lab, problem set, quiz, exam, or project.\n"
+            "2. 'OPPORTUNITY_DEADLINE': Hackathon, fellowship, research grant, or internship submission/registration.\n"
+            "3. 'INFORMATIONAL_ALERT': Welcome messages, security/passkey alerts, login receipts, verification codes, "
+            "purchase confirmations, or newsletters without course deadlines or competitions. (NO DEADLINE).\n"
+            "4. 'SPAM_NOISE': Store discounts, merchandise, hoodies, promotional ads.\n\n"
+            "Return valid JSON matching this schema:\n"
+            "{\n"
+            '  "category": "ACADEMIC_DEADLINE" | "OPPORTUNITY_DEADLINE" | "INFORMATIONAL_ALERT" | "SPAM_NOISE",\n'
+            '  "has_explicit_deadline": bool,\n'
+            '  "confidence": float,\n'
+            '  "title": str,\n'
+            '  "course_or_organizer": str,\n'
+            '  "exact_deadline_iso": str or null,\n'
+            '  "deadline_verbatim": str or null,\n'
+            '  "needs_web_search": bool,\n'
+            '  "search_query": str or null,\n'
+            '  "action_required": str,\n'
+            '  "estimated_hours": float\n'
+            "}\n\n"
+            "FEW-SHOT EXAMPLES:\n"
+            "--- Example 1 ---\n"
+            "Sender: SerpApi <contact@serpapi.com>\n"
+            "Subject: Welcome to SerpApi!\n"
+            "Body: Welcome to SerpApi! Hi Piyansh, To scrape search results with our API...\n"
+            "Output: {\n"
+            '  "category": "INFORMATIONAL_ALERT",\n'
+            '  "has_explicit_deadline": false,\n'
+            '  "confidence": 0.99,\n'
+            '  "title": "Welcome to SerpApi!",\n'
+            '  "course_or_organizer": "SerpApi",\n'
+            '  "exact_deadline_iso": null,\n'
+            '  "deadline_verbatim": null,\n'
+            '  "needs_web_search": false,\n'
+            '  "search_query": null,\n'
+            '  "action_required": "None",\n'
+            '  "estimated_hours": 0.0\n'
+            "}\n\n"
+            "--- Example 2 ---\n"
+            "Sender: Google <no-reply@accounts.google.com>\n"
+            "Subject: Security alert\n"
+            "Body: New passkey added to your account. If you didn't do this, check your account settings.\n"
+            "Output: {\n"
+            '  "category": "INFORMATIONAL_ALERT",\n'
+            '  "has_explicit_deadline": false,\n'
+            '  "confidence": 0.99,\n'
+            '  "title": "Security alert",\n'
+            '  "course_or_organizer": "Google Accounts",\n'
+            '  "exact_deadline_iso": null,\n'
+            '  "deadline_verbatim": null,\n'
+            '  "needs_web_search": false,\n'
+            '  "search_query": null,\n'
+            '  "action_required": "None",\n'
+            '  "estimated_hours": 0.0\n'
+            "}\n\n"
+            "--- Example 3 ---\n"
+            "Sender: No Reply <no-reply@devpost.com>\n"
+            "Subject: Still planning on entering PayPal AI Hackathon?\n"
+            "Body: Submissions are open. Build an innovative financial agent using open weights...\n"
+            "Output: {\n"
+            '  "category": "OPPORTUNITY_DEADLINE",\n'
+            '  "has_explicit_deadline": false,\n'
+            '  "confidence": 0.95,\n'
+            '  "title": "PayPal AI Hackathon",\n'
+            '  "course_or_organizer": "PayPal / Devpost",\n'
+            '  "exact_deadline_iso": null,\n'
+            '  "deadline_verbatim": null,\n'
+            '  "needs_web_search": true,\n'
+            '  "search_query": "PayPal AI Hackathon 2026 submission deadline",\n'
+            '  "action_required": "Submit project on Devpost",\n'
+            '  "estimated_hours": 8.0\n'
+            "}\n\n"
+            "--- Example 4 ---\n"
+            "Sender: Prof. Menon <menon@iiitl.ac.in>\n"
+            "Subject: CS401: Distributed Systems - Lab 3 Submission Cutoff Tonight\n"
+            "Body: Lab 3 consensus engine is due tonight by 11:59 PM on Classroom.\n"
+            "Context Anchor: 2026-10-22 14:00:00 IST (Thursday)\n"
+            "Output: {\n"
+            '  "category": "ACADEMIC_DEADLINE",\n'
+            '  "has_explicit_deadline": true,\n'
+            '  "confidence": 0.98,\n'
+            '  "title": "Lab 3: Raft Consensus Engine",\n'
+            '  "course_or_organizer": "CS401: Distributed Systems",\n'
+            '  "exact_deadline_iso": "2026-10-22T18:29:00Z",\n'
+            '  "deadline_verbatim": "tonight by 11:59 PM",\n'
+            '  "needs_web_search": false,\n'
+            '  "search_query": null,\n'
+            '  "action_required": "Submit Raft consensus engine on Classroom",\n'
+            '  "estimated_hours": 3.0\n'
+            "}"
         )
-        user_prompt = f"Sender: {sender}\nSubject: {subject}\nBody:\n{body}"
+
+        user_prompt = f"Sender: {sender}\nSubject: {subject}\nReceived Context: {anchor}\nBody:\n{body[:1500]}"
 
         response = await self._call_chat(user_prompt, system=system_prompt, json_mode=True)
         if response:
             try:
                 clean = re.sub(r"^```(?:json)?", "", response.strip(), flags=re.MULTILINE)
                 clean = re.sub(r"```$", "", clean.strip(), flags=re.MULTILINE)
-                return json.loads(clean.strip())
+                data = json.loads(clean.strip())
+                # Backwards-compatible keys
+                data["has_action"] = data.get("category") in ("ACADEMIC_DEADLINE", "OPPORTUNITY_DEADLINE")
+                data["is_spam"] = data.get("category") in ("SPAM_NOISE", "INFORMATIONAL_ALERT")
+                data["course"] = data.get("course_or_organizer", "")
+                data["deadline_text"] = data.get("deadline_verbatim") or data.get("exact_deadline_iso")
+                return data
             except Exception:
                 pass
 
-        # Robust heuristic fallback for offline/test environments
+        # Robust deterministic fallback
         lower_text = f"{subject} {body}".lower()
-        is_spam = any(w in lower_text for w in ["sale", "hoodies", "newsletter", "movie night", "lost & found", "discount", "merchandise"])
+
+        # Check informational / security alerts
+        if any(w in lower_text for w in ["welcome to", "security alert", "passkey", "verification code", "receipt for", "subscription confirmed"]):
+            return {
+                "category": "INFORMATIONAL_ALERT",
+                "has_action": False,
+                "is_spam": True,
+                "has_explicit_deadline": False,
+                "confidence": 0.95,
+                "title": subject,
+                "course_or_organizer": sender.split("<")[0].strip(),
+                "exact_deadline_iso": None,
+                "deadline_verbatim": None,
+                "needs_web_search": False,
+                "search_query": None,
+                "action_required": "None",
+                "estimated_hours": 0.0
+            }
+
+        # Check spam
+        if any(w in lower_text for w in ["sale", "hoodies", "newsletter", "movie night", "lost & found", "discount", "merchandise"]):
+            return {
+                "category": "SPAM_NOISE",
+                "has_action": False,
+                "is_spam": True,
+                "has_explicit_deadline": False,
+                "confidence": 0.95,
+                "title": subject,
+                "course_or_organizer": sender,
+                "exact_deadline_iso": None,
+                "deadline_verbatim": None,
+                "needs_web_search": False,
+                "search_query": None,
+                "action_required": "None",
+                "estimated_hours": 0.0
+            }
+
+        # Check opportunities
+        is_opp = any(w in lower_text for w in ["hackathon", "internship", "fellowship", "code for good", "devpost", "unstop"])
+        if is_opp:
+            has_due = any(w in lower_text for w in ["due", "deadline", "closing", "cutoff", "submit before"])
+            return {
+                "category": "OPPORTUNITY_DEADLINE",
+                "has_action": True,
+                "is_spam": False,
+                "has_explicit_deadline": has_due,
+                "confidence": 0.90,
+                "title": subject,
+                "course_or_organizer": sender.split("<")[0].strip() or "Opportunity",
+                "exact_deadline_iso": None,
+                "deadline_verbatim": "See Event" if has_due else None,
+                "needs_web_search": not has_due,
+                "search_query": f"{subject} 2026 deadline" if not has_due else None,
+                "action_required": "Register/Submit project",
+                "estimated_hours": 5.0
+            }
+
+        # Academic task check
         has_due = any(w in lower_text for w in ["due", "submission", "deadline", "cutoff", "extension", "assignment", "lab", "homework"])
-        
         course_match = re.search(r"([A-Z]{2,4}\s?\d{3})", subject)
-        course = course_match.group(1) if course_match else "General"
+        course = course_match.group(1) if course_match else "General Coursework"
 
         return {
-            "has_action": bool(has_due and not is_spam),
-            "is_spam": is_spam,
-            "course": course,
+            "category": "ACADEMIC_DEADLINE" if has_due else "INFORMATIONAL_ALERT",
+            "has_action": bool(has_due),
+            "is_spam": not bool(has_due),
+            "has_explicit_deadline": bool(has_due and any(k in lower_text for k in ["tonight", "tomorrow", "pm", "am", "by "])),
+            "confidence": 0.85 if has_due else 0.70,
             "title": subject,
-            "deadline_text": "Tonight 11:59 PM" if "tonight" in lower_text else ("Tomorrow" if "tomorrow" in lower_text else "Next Week"),
+            "course_or_organizer": course,
+            "exact_deadline_iso": None,
+            "deadline_verbatim": "Tonight 11:59 PM" if "tonight" in lower_text else ("Tomorrow 6:00 PM" if "tomorrow" in lower_text else None),
+            "needs_web_search": False,
+            "search_query": None,
             "action_required": "Submit coursework before cutoff" if has_due else "None",
             "estimated_hours": 3.0 if "lab" in lower_text else 1.5
         }
 
+    async def extract_deadline_from_search(
+        self,
+        query: str,
+        snippets: list[str],
+        anchor_ist: Optional[str] = None
+    ) -> Optional[str]:
+        """
+        Parses search engine snippets to extract an exact future ISO-8601 deadline.
+        """
+        if not snippets:
+            return None
+
+        anchor = anchor_ist or datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S IST")
+        combined_text = "\n".join(f"- {s}" for s in snippets[:4])
+
+        system_prompt = (
+            "You are Hermes Deadline Extractor. Given search snippets about an event, extract the exact future submission/registration cutoff date.\n"
+            f"REFERENCE ANCHOR: {anchor}\n"
+            "Return JSON: {\"found\": bool, \"exact_deadline_iso\": str or null, \"reason\": str}\n"
+            "Rules:\n"
+            "- If multiple dates exist, choose the final project submission or registration deadline.\n"
+            "- If the deadline is in the past relative to reference anchor, return found: false, exact_deadline_iso: null.\n"
+            "- If no specific deadline is mentioned, return found: false, exact_deadline_iso: null."
+        )
+        user_prompt = f"Event: {query}\nSnippets:\n{combined_text}"
+
+        response = await self._call_chat(user_prompt, system=system_prompt, json_mode=True)
+        if response:
+            try:
+                clean = re.sub(r"^```(?:json)?", "", response.strip(), flags=re.MULTILINE)
+                clean = re.sub(r"```$", "", clean.strip(), flags=re.MULTILINE)
+                data = json.loads(clean.strip())
+                if data.get("found") and data.get("exact_deadline_iso"):
+                    return data["exact_deadline_iso"]
+            except Exception:
+                pass
+
+        # Regex heuristic fallback: look for dates like "October 28, 2026" or "Nov 15, 2026"
+        month_pattern = r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(202[5-9])"
+        match = re.search(month_pattern, combined_text, re.IGNORECASE)
+        if match:
+            month_str, day_str, year_str = match.groups()
+            try:
+                dt = datetime.strptime(f"{month_str[:3]} {day_str} {year_str}", "%b %d %Y").replace(
+                    hour=23, minute=59, tzinfo=timezone.utc
+                )
+                return dt.isoformat()
+            except Exception:
+                pass
+
+        return None
+
     async def score_opportunity(self, title: str, description: str, tags: list[str], user_skills: list[str]) -> dict:
         """
-        Uses Gemma 2 to score relevance of hackathons and internships.
+        Uses Gemma to score relevance of hackathons and internships.
         """
         system_prompt = (
             "You are Hermes Opportunity Scout. "
@@ -113,8 +335,6 @@ class GemmaClient:
         # Robust skill-matching fallback
         text_corpus = (title + " " + description + " " + " ".join(tags)).lower()
         matched_skills = [s for s in user_skills if s.lower() in text_corpus]
-        
-        # Base score 4, each matched skill adds 2 points (capped at 10)
         score = min(10, 4 + len(matched_skills) * 2) if user_skills else 5
 
         return {
@@ -124,9 +344,6 @@ class GemmaClient:
         }
 
     async def generate_briefing_script(self, panic_items: list[dict], imminent_items: list[dict], top_opp: Optional[dict]) -> str:
-        """
-        Synthesizes a 60-second natural morning speech script for ElevenLabs.
-        """
         system_prompt = (
             "You are Hermes, an academic intelligence assistant with a calm, reassuring, and direct tone. "
             "Generate a concise 60-second morning spoken briefing for the student. "
@@ -138,23 +355,15 @@ class GemmaClient:
             f"Imminent items due in 1-3 days: {imminent_items}\n"
             f"Top Opportunity: {top_opp}\n"
         )
-
         response = await self._call_chat(user_prompt, system=system_prompt, json_mode=False)
-        if response and len(response.strip()) > 30:
+        if response:
             return response.strip()
 
-        # Deterministic humanized fallback script
-        panic_text = f"You have {len(panic_items)} urgent item requiring your attention today" if panic_items else "No critical deadlines due in the next 24 hours"
-        if panic_items:
-            first = panic_items[0]
-            panic_text += f", notably {first.get('title', 'an assignment')} in {first.get('source', 'your courses')}."
-        else:
-            panic_text += ", so you have room to focus."
-
-        opp_text = f" Also, keep an eye on {top_opp.get('title', 'an upcoming hackathon')} with registration closing soon." if top_opp else ""
+        # Fallback script
         return (
-            f"Good morning. Here is your Hermes intelligence briefing. {panic_text}"
-            f"{opp_text} Focus on high-leverage work, and let the rest wait. Have a productive day."
+            f"Good morning. You have {len(panic_items)} items requiring attention today, "
+            f"and {len(imminent_items)} active cutoffs approaching. "
+            "Check your dashboard to stay ahead of upcoming deadlines."
         )
 
 gemma_client = GemmaClient()

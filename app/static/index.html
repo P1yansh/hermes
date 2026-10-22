@@ -159,45 +159,45 @@
       
       <div class="p-3 sm:px-5 flex flex-col justify-between">
         <div class="flex items-center justify-between text-[11px] text-zinc-400">
-          <span>BAND 01 // PANIC (&lt;24H)</span>
+          <span>BAND 01 // CRITICAL PANIC (&lt;6H)</span>
           <span class="w-2 h-2 bg-panic animate-pulse-fast"></span>
         </div>
         <div class="mt-1 flex items-baseline gap-2">
           <span id="metric-panic" class="text-2xl font-bold text-panic tabular-nums">0</span>
-          <span class="text-[11px] text-zinc-500">CRITICAL CUTOFFS</span>
+          <span class="text-[11px] text-zinc-500">jaldi kar alsi</span>
         </div>
       </div>
 
       <div class="p-3 sm:px-5 flex flex-col justify-between">
         <div class="flex items-center justify-between text-[11px] text-zinc-400">
-          <span>BAND 02 // IMMINENT (24-72H)</span>
+          <span>BAND 02 // APPROACHING (6-24H)</span>
           <span class="w-2 h-2 bg-imminent"></span>
         </div>
         <div class="mt-1 flex items-baseline gap-2">
           <span id="metric-imminent" class="text-2xl font-bold text-imminent tabular-nums">0</span>
-          <span class="text-[11px] text-zinc-500">ACTIVE QUEUE</span>
+          <span class="text-[11px] text-zinc-500">abhi to ghante hai :)</span>
         </div>
       </div>
 
       <div class="p-3 sm:px-5 flex flex-col justify-between">
         <div class="flex items-center justify-between text-[11px] text-zinc-400">
-          <span>BAND 03 // UPCOMING (&gt;72H)</span>
+          <span>BAND 03 // CHILL (&gt;24H)</span>
           <span class="w-2 h-2 bg-upcoming"></span>
         </div>
         <div class="mt-1 flex items-baseline gap-2">
           <span id="metric-upcoming" class="text-2xl font-bold text-upcoming tabular-nums">0</span>
-          <span class="text-[11px] text-zinc-500">HORIZON TRACKED</span>
+          <span class="text-[11px] text-zinc-500">abhi kyu karna</span>
         </div>
       </div>
 
       <div class="p-3 sm:px-5 flex flex-col justify-between">
         <div class="flex items-center justify-between text-[11px] text-zinc-400">
-          <span>ACADEMIC TRIAGE</span>
-          <span class="text-[10px] text-zinc-500">GMAIL + CLASSROOM</span>
+          <span>ACTIVE WATCHLIST</span>
+          <span class="text-[10px] text-zinc-500">UNCONFIRMED</span>
         </div>
         <div class="mt-1 flex items-baseline gap-2">
-          <span id="metric-academic" class="text-2xl font-bold text-zinc-100 tabular-nums">0</span>
-          <span id="metric-noise-dropped" class="text-[11px] text-emerald-400">14 SPAM DROPPED</span>
+          <span id="metric-watchlist" class="text-2xl font-bold text-zinc-300 tabular-nums">0</span>
+          <span id="metric-noise-dropped" class="text-[11px] text-emerald-400">ZERO FAKE TIMERS</span>
         </div>
       </div>
 
@@ -268,12 +268,12 @@
       <!-- 3-BAND URGENCY COLUMNS -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
         
-        <!-- COLUMN 1: PANIC (< 24H) -->
+        <!-- COLUMN 1: PANIC (< 6H) -->
         <div class="bg-obsidian-900/90 border border-obsidian-700 flex flex-col">
           <div class="p-3 border-b border-obsidian-700 flex items-center justify-between bg-red-950/20">
             <div class="flex items-center gap-2">
               <span class="w-2 h-2 bg-panic"></span>
-              <h2 class="font-mono text-xs font-bold tracking-wider uppercase text-red-400">PANIC // &lt; 24 HOURS</h2>
+              <h2 class="font-mono text-xs font-bold tracking-wider uppercase text-red-400">PANIC // &lt; 6 HOURS</h2>
             </div>
             <span id="col-count-panic" class="font-mono text-xs px-1.5 py-0.5 bg-red-950/80 border border-red-800/60 text-red-300 tabular-nums">0</span>
           </div>
@@ -282,12 +282,12 @@
           </div>
         </div>
 
-        <!-- COLUMN 2: IMMINENT (24H - 72H) -->
+        <!-- COLUMN 2: APPROACHING (6H - 24H) -->
         <div class="bg-obsidian-900/90 border border-obsidian-700 flex flex-col">
           <div class="p-3 border-b border-obsidian-700 flex items-center justify-between bg-amber-950/15">
             <div class="flex items-center gap-2">
               <span class="w-2 h-2 bg-imminent"></span>
-              <h2 class="font-mono text-xs font-bold tracking-wider uppercase text-amber-400">IMMINENT // 24H – 72H</h2>
+              <h2 class="font-mono text-xs font-bold tracking-wider uppercase text-amber-400">APPROACHING // 6H – 24H</h2>
             </div>
             <span id="col-count-imminent" class="font-mono text-xs px-1.5 py-0.5 bg-amber-950/80 border border-amber-800/60 text-amber-300 tabular-nums">0</span>
           </div>
@@ -296,12 +296,12 @@
           </div>
         </div>
 
-        <!-- COLUMN 3: UPCOMING (> 72H) -->
+        <!-- COLUMN 3: CHILL (> 24H) -->
         <div class="bg-obsidian-900/90 border border-obsidian-700 flex flex-col">
           <div class="p-3 border-b border-obsidian-700 flex items-center justify-between bg-emerald-950/15">
             <div class="flex items-center gap-2">
               <span class="w-2 h-2 bg-upcoming"></span>
-              <h2 class="font-mono text-xs font-bold tracking-wider uppercase text-emerald-400">UPCOMING // &gt; 72 HOURS</h2>
+              <h2 class="font-mono text-xs font-bold tracking-wider uppercase text-emerald-400">CHILL // &gt; 24 HOURS</h2>
             </div>
             <span id="col-count-upcoming" class="font-mono text-xs px-1.5 py-0.5 bg-emerald-950/80 border border-emerald-800/60 text-emerald-300 tabular-nums">0</span>
           </div>
@@ -310,6 +310,23 @@
           </div>
         </div>
 
+      </div>
+
+      <!-- ACTIVE WATCHLIST (UNCONFIRMED CUTOFFS) DRAWER -->
+      <div class="bg-obsidian-900 border border-obsidian-700">
+        <div class="px-4 py-3 border-b border-obsidian-700 flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-2.5">
+            <span class="w-2 h-2 bg-zinc-400"></span>
+            <span class="font-mono text-xs font-bold uppercase tracking-wider text-zinc-200">ACTIVE WATCHLIST // UNCONFIRMED CUTOFFS</span>
+            <span id="watchlist-count-badge" class="font-mono text-[10px] px-1.5 py-0.5 bg-obsidian-800 border border-obsidian-700 text-zinc-300 tabular-nums">0 ITEMS</span>
+          </div>
+          <div class="flex items-center gap-3 font-mono text-[11px]">
+            <span class="text-zinc-500">// Actionable tasks awaiting announcement or autonomous web resolution (Zero fake timers)</span>
+          </div>
+        </div>
+        <div id="watchlist-container" class="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          <!-- Populated dynamically -->
+        </div>
       </div>
 
       <!-- ACADEMIC TRIAGE vs SPAM FILTER AUDIT LOG -->
@@ -533,6 +550,7 @@
       academicTasks: [],
       opportunities: [],
       radarItems: [],
+      watchlistItems: [],
       briefingText: '',
       isPlayingAudio: false,
       playbackRate: 1.0,
@@ -663,11 +681,34 @@
     function computeRadarItems(academic, opportunities) {
       const now = Date.now();
       const combined = [];
+      const watchlist = [];
 
       academic.forEach(task => {
+        if (!task.deadline || task.has_explicit_deadline === false) {
+          watchlist.push({
+            id: task.id || `acad-${Math.random().toString(36).slice(2, 7)}`,
+            kind: 'academic_task',
+            source: (task.source || task.source_type || 'classroom').toUpperCase(),
+            title: task.title,
+            note: task.action_required || task.description || 'Cutoff unconfirmed — awaiting announcement',
+            account_source: task.account_source || 'default',
+            action_url: task.submission_url || task.url || null
+          });
+          return;
+        }
+
         const deadlineMs = new Date(task.deadline).getTime();
         const hoursRemaining = (deadlineMs - now) / 3600000;
         const band = hoursRemaining < 6 ? 'panic' : (hoursRemaining <= 24 ? 'imminent' : 'upcoming');
+        let sloth_message = '';
+        if (hoursRemaining < 6) {
+          sloth_message = `jaldi kar alsi, warna gaya bas ${Math.max(0.1, hoursRemaining).toFixed(1)} hours baki hai`;
+        } else if (hoursRemaining <= 24) {
+          sloth_message = `abhi to ${Math.max(0.1, hoursRemaining).toFixed(1)} ghante hai :)`;
+        } else {
+          sloth_message = `abhi kyu karna, ${Math.max(1, Math.round(hoursRemaining / 24))} days baki hai`;
+        }
+
         combined.push({
           id: task.id || `acad-${Math.random().toString(36).slice(2, 7)}`,
           kind: 'academic',
@@ -677,6 +718,7 @@
           deadline: task.deadline,
           hours_remaining: hoursRemaining,
           band,
+          sloth_message,
           score: task.priority_score ? `${Math.round(task.priority_score * 100)}% PRI` : 'TRIAGED',
           description: task.description || task.action_required || 'Extracted via local Gemma GBNF structured output.',
           raw: task
@@ -684,9 +726,31 @@
       });
 
       opportunities.forEach(opp => {
+        if (!opp.deadline || opp.has_explicit_deadline === false) {
+          watchlist.push({
+            id: opp.id || `opp-${Math.random().toString(36).slice(2, 7)}`,
+            kind: 'opportunity_scout',
+            source: (opp.category || opp.type || 'OPPORTUNITY').toUpperCase(),
+            title: opp.title,
+            note: opp.eligibility_reason || opp.description || 'Cutoff unconfirmed — awaiting announcement',
+            account_source: opp.source_inbox || 'default',
+            action_url: opp.url || null
+          });
+          return;
+        }
+
         const deadlineMs = new Date(opp.deadline).getTime();
         const hoursRemaining = (deadlineMs - now) / 3600000;
         const band = hoursRemaining < 6 ? 'panic' : (hoursRemaining <= 24 ? 'imminent' : 'upcoming');
+        let sloth_message = '';
+        if (hoursRemaining < 6) {
+          sloth_message = `jaldi kar alsi, warna gaya bas ${Math.max(0.1, hoursRemaining).toFixed(1)} hours baki hai`;
+        } else if (hoursRemaining <= 24) {
+          sloth_message = `abhi to ${Math.max(0.1, hoursRemaining).toFixed(1)} ghante hai :)`;
+        } else {
+          sloth_message = `abhi kyu karna, ${Math.max(1, Math.round(hoursRemaining / 24))} days baki hai`;
+        }
+
         combined.push({
           id: opp.id || `opp-${Math.random().toString(36).slice(2, 7)}`,
           kind: 'opportunity',
@@ -696,6 +760,7 @@
           deadline: opp.deadline,
           hours_remaining: hoursRemaining,
           band,
+          sloth_message,
           score: `${opp.match_score || (opp.relevance_score ? opp.relevance_score * 10 : 85)}% MATCH`,
           tags: opp.tags || opp.required_skills || [],
           matched_skills: opp.matched_skills || [],
@@ -704,6 +769,7 @@
         });
       });
 
+      state.watchlistItems = watchlist;
       return combined.sort((a, b) => a.hours_remaining - b.hours_remaining);
     }
 
@@ -752,7 +818,7 @@
 
       try {
         // Attempt real FastAPI endpoints concurrently
-        const [statusRes, triageRes, scoutRes, briefingRes] = await Promise.allSettled([
+        const [statusRes, triageRes, scoutRes, briefingRes, radarRes] = await Promise.allSettled([
           fetch('/api/health').then(r => r.ok ? r.json() : fetch('/').then(r2 => r2.json())),
           fetch('/api/triage').then(r => r.ok ? r.json() : Promise.reject()),
           fetch('/api/scout', {
@@ -760,7 +826,8 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ skills: state.skills })
           }).then(r => r.ok ? r.json() : fetch('/api/scout').then(r2 => r2.json())),
-          fetch('/api/briefing').then(r => r.ok ? r.json() : Promise.reject())
+          fetch('/api/briefing').then(r => r.ok ? r.json() : Promise.reject()),
+          fetch('/api/radar').then(r => r.ok ? r.json() : Promise.reject())
         ]);
 
         let usedLive = false;
@@ -789,7 +856,29 @@
           state.opportunities = scoreOpportunitiesLocal(sim.rawOpps, state.skills);
         }
 
-        state.radarItems = computeRadarItems(state.academicTasks, state.opportunities);
+        if (radarRes.status === 'fulfilled' && radarRes.value) {
+          const rData = radarRes.value;
+          state.watchlistItems = rData.watchlist || [];
+          if (Array.isArray(rData.items)) {
+            state.radarItems = rData.items.map(i => ({
+              id: i.id,
+              kind: i.kind === 'academic_assignment' ? 'academic' : 'opportunity',
+              source: i.kind === 'academic_assignment' ? 'CLASSROOM' : 'OPPORTUNITY',
+              context: i.source,
+              title: i.title,
+              deadline: i.deadline,
+              hours_remaining: i.hours_remaining,
+              band: i.urgency === 'critical_panic' ? 'panic' : (i.urgency === 'approaching' ? 'imminent' : 'upcoming'),
+              sloth_message: i.sloth_message,
+              score: i.priority_weight ? `${i.priority_weight}x PRI` : 'TRACKED',
+              description: i.title,
+              raw: i
+            }));
+            usedLive = true;
+          }
+        } else {
+          state.radarItems = computeRadarItems(state.academicTasks, state.opportunities);
+        }
 
         if (briefingRes.status === 'fulfilled' && briefingRes.value) {
           state.briefingText = briefingRes.value.script || briefingRes.value.briefing || briefingRes.value.text || generateFallbackBriefing(state.radarItems);
@@ -811,6 +900,9 @@
       } catch (err) {
         state.academicTasks = sim.academic;
         state.opportunities = scoreOpportunitiesLocal(sim.rawOpps, state.skills);
+        state.radarItems = computeRadarItems(state.academicTasks, state.opportunities);
+        state.briefingText = generateFallbackBriefing(state.radarItems);
+      }
         state.radarItems = computeRadarItems(state.academicTasks, state.opportunities);
         state.briefingText = generateFallbackBriefing(state.radarItems);
       }
@@ -909,6 +1001,7 @@
             <h3 class="text-sm font-semibold text-zinc-100 group-hover:text-white leading-snug mt-0.5">
               ${escapeHtml(item.title)}
             </h3>
+            ${item.sloth_message ? `<div class="font-mono text-[11px] text-amber-400/90 italic mt-1">${escapeHtml(item.sloth_message)}</div>` : ''}
           </div>
 
           <div class="pt-2 border-t border-obsidian-800/80 flex items-center justify-between font-mono text-[11px] text-zinc-400">
@@ -942,6 +1035,9 @@
       document.getElementById('metric-upcoming').textContent = upcomingList.length;
       document.getElementById('metric-academic').textContent = state.academicTasks.length;
       document.getElementById('metric-scout').textContent = state.opportunities.length;
+      if (document.getElementById('metric-watchlist')) {
+        document.getElementById('metric-watchlist').textContent = (state.watchlistItems || []).length;
+      }
 
       document.getElementById('col-count-panic').textContent = panicList.length;
       document.getElementById('col-count-imminent').textContent = imminentList.length;
@@ -966,10 +1062,53 @@
         ? upcomingList.map(renderRadarCard).join('')
         : emptyStateHtml('UPCOMING BAND');
 
+      renderWatchlist();
       renderTriageTable();
       renderSkillTags();
       renderScoutList();
       renderBriefingTranscript();
+    }
+
+    function renderWatchlist() {
+      const container = document.getElementById('watchlist-container');
+      const badge = document.getElementById('watchlist-count-badge');
+      if (!container) return;
+
+      const items = state.watchlistItems || [];
+      if (badge) badge.textContent = `${items.length} ITEMS`;
+
+      if (items.length === 0) {
+        container.innerHTML = `
+          <div class="col-span-full py-6 border border-dashed border-obsidian-800 flex flex-col items-center justify-center text-center font-mono text-xs text-zinc-500">
+            <span>ZERO UNCONFIRMED SIGNALS</span>
+            <span class="text-[10px] text-zinc-600 mt-1">All tracked academic and opportunity cutoffs have verified timestamps</span>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = items.map(item => `
+        <div class="bg-obsidian-950 border border-obsidian-700 p-3.5 flex flex-col justify-between gap-2.5">
+          <div class="flex items-center justify-between font-mono text-[10px]">
+            <div class="flex items-center gap-1.5">
+              <span class="px-1.5 py-0.5 bg-obsidian-800 border border-obsidian-700 text-zinc-300 uppercase">${escapeHtml(item.source)}</span>
+              ${item.account_source && item.account_source !== 'default' ? `<span class="px-1 py-0.2 bg-zinc-900 border border-zinc-700 text-zinc-400">${escapeHtml(item.account_source)}</span>` : ''}
+            </div>
+            <span class="px-1.5 py-0.5 bg-zinc-900 border border-zinc-700 text-zinc-400">UNCONFIRMED</span>
+          </div>
+          <div>
+            <h4 class="text-xs font-semibold text-zinc-200">${escapeHtml(item.title)}</h4>
+            <p class="font-mono text-[11px] text-zinc-500 mt-1">${escapeHtml(item.note || 'Cutoff unconfirmed — awaiting announcement')}</p>
+          </div>
+          ${item.action_url ? `
+            <div class="pt-2 border-t border-obsidian-800/80 flex justify-end">
+              <a href="${escapeHtml(item.action_url)}" target="_blank" rel="noopener noreferrer" class="font-mono text-[10px] text-zinc-400 hover:text-zinc-100 flex items-center gap-1">
+                OPEN SOURCE ↗
+              </a>
+            </div>
+          ` : ''}
+        </div>
+      `).join('');
     }
 
     function renderTriageTable() {

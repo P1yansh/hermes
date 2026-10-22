@@ -21,16 +21,27 @@ class RadarItem(BaseModel):
     action_url: Optional[str] = None
     priority_weight: float = 1.0  # higher = more critical
 
+class WatchlistItem(BaseModel):
+    id: str
+    kind: Literal["academic_task", "opportunity_scout"]
+    title: str
+    source: str
+    action_url: Optional[str] = None
+    note: str = "Cutoff unconfirmed"
+    account_source: Optional[str] = "default"
+
 class RadarSummary(BaseModel):
     critical_panic_count: int = 0
     approaching_count: int = 0
     chill_count: int = 0
     total_active: int = 0
+    watchlist_count: int = 0
 
 class RadarReport(BaseModel):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     summary: RadarSummary
     items: list[RadarItem]
+    watchlist: list[WatchlistItem] = Field(default_factory=list)
 
 class DailyBriefing(BaseModel):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

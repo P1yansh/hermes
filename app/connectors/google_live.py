@@ -143,8 +143,10 @@ class GoogleLiveConnector(BaseConnector):
                     subject = headers.get("subject", "No Subject")
                     snippet = msg.get("snippet", "")
 
-                    internal_date = int(msg.get("internalDate", 0)) / 1000.0
-                    received_at = datetime.fromtimestamp(internal_date, tz=timezone.utc) if internal_date else datetime.now(timezone.utc)
+                    raw_internal_date = int(msg.get("internalDate", 0))
+                    internal_date_sec = raw_internal_date / 1000.0 if raw_internal_date else 0
+                    received_at = datetime.fromtimestamp(internal_date_sec, tz=timezone.utc) if internal_date_sec else datetime.now(timezone.utc)
+                    thread_id = msg.get("threadId")
 
                     all_emails.append(
                         EmailMessage(
@@ -154,7 +156,9 @@ class GoogleLiveConnector(BaseConnector):
                             received_at=received_at,
                             body=snippet,
                             category="academic" if any(w in (subject + snippet).lower() for w in ["assignment", "quiz", "due", "exam", "lab"]) else "general",
-                            account_source=acc_id
+                            account_source=acc_id,
+                            thread_id=f"{acc_id}:{thread_id}" if thread_id else None,
+                            internal_date=raw_internal_date
                         )
                     )
                 any_success = True

@@ -9,7 +9,7 @@ class OpportunityItem(BaseModel):
     title: str
     type: OpportunityType
     organizer: str
-    deadline: datetime
+    deadline: Optional[datetime] = None
     prizes: Optional[str] = None
     tags: list[str] = Field(default_factory=list)
     description: str
@@ -22,6 +22,9 @@ class OpportunityItem(BaseModel):
     eligibility_reason: Optional[str] = None
     source_inbox: Optional[str] = None
     match_score: Optional[int] = None
+    has_explicit_deadline: bool = True
+    thread_id: Optional[str] = None
+    canonical_slug: Optional[str] = None
 
 class UserProfile(BaseModel):
     name: str = "P1yansh"

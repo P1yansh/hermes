@@ -27,15 +27,17 @@ class SyncService:
         # 3. Compile radar from persistent state
         raw_items: list[dict] = []
         for t in tasks:
-            if t.deadline:
-                raw_items.append({
-                    "id": f"academic_{t.source_id}",
-                    "kind": "academic_assignment",
-                    "title": t.title,
-                    "source": t.course_or_sender,
-                    "deadline": t.deadline,
-                    "action_url": t.submission_url
-                })
+            raw_items.append({
+                "id": f"academic_{t.source_id}",
+                "kind": "academic_assignment",
+                "title": t.title,
+                "source": t.course_or_sender,
+                "deadline": t.deadline,
+                "has_explicit_deadline": t.has_explicit_deadline,
+                "action_url": t.submission_url,
+                "account_source": t.account_source,
+                "note": t.action_required
+            })
 
         for o in scout_report.matches:
             raw_items.append({
@@ -44,7 +46,10 @@ class SyncService:
                 "title": f"Registration: {o.title}",
                 "source": o.organizer,
                 "deadline": o.deadline,
-                "action_url": o.url
+                "has_explicit_deadline": o.has_explicit_deadline,
+                "action_url": o.url,
+                "account_source": o.source_inbox,
+                "note": f"{o.type.capitalize()} • {o.eligibility_reason or o.mode or 'Online'}"
             })
 
         radar_report = radar_engine.compile_radar(raw_items)

@@ -10,13 +10,15 @@ class EmailMessage(BaseModel):
     body: str
     category: str = "general"
     account_source: Optional[str] = "default"
+    thread_id: Optional[str] = None
+    internal_date: Optional[int] = None
 
 class ClassroomAssignment(BaseModel):
     id: str
     course_name: str
     title: str
     description: str
-    due_at: datetime
+    due_at: Optional[datetime] = None
     max_points: Optional[int] = 100
     submission_url: Optional[str] = None
     status: str = "pending"
@@ -41,3 +43,6 @@ class ExtractedTask(BaseModel):
     estimated_hours: Optional[float] = 1.0
     confidence: float = 1.0
     account_source: Optional[str] = "default"
+    has_explicit_deadline: bool = True
+    thread_id: Optional[str] = None
+    canonical_slug: Optional[str] = None

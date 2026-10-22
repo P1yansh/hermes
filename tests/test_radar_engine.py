@@ -80,3 +80,51 @@ def test_compile_radar():
     assert report.items[2].id == "3"
     assert report.items[2].urgency == UrgencyTier.CHILL
     assert "abhi kyu karna" in report.items[2].sloth_message
+
+def test_watchlist_partitioning():
+    now = datetime.now(timezone.utc)
+    raw_items = [
+        {
+            "id": "timed_1",
+            "kind": "academic_assignment",
+            "title": "Timed Assignment",
+            "source": "CS101",
+            "deadline": now + timedelta(hours=4),
+            "has_explicit_deadline": True,
+            "action_url": "https://example.com/a1"
+        },
+        {
+            "id": "watchlist_task",
+            "kind": "academic_assignment",
+            "title": "Open-Ended Course Project",
+            "source": "CS502",
+            "deadline": None,
+            "has_explicit_deadline": False,
+            "action_url": "https://example.com/project",
+            "note": "Awaiting final schedule announcement"
+        },
+        {
+            "id": "watchlist_opp",
+            "kind": "hackathon_deadline",
+            "title": "Unscheduled Fellowship",
+            "source": "Tech Org",
+            "deadline": None,
+            "has_explicit_deadline": False,
+            "action_url": "https://example.com/fellowship",
+            "note": "Applications opening soon"
+        }
+    ]
+
+    report = radar_engine.compile_radar(raw_items)
+    # Only 1 item has a verified future cutoff
+    assert report.summary.total_active == 1
+    assert len(report.items) == 1
+    assert report.items[0].id == "timed_1"
+
+    # 2 items partitioned into Watchlist
+    assert report.summary.watchlist_count == 2
+    assert len(report.watchlist) == 2
+    assert report.watchlist[0].id == "watchlist_task"
+    assert report.watchlist[0].kind == "academic_task"
+    assert report.watchlist[1].id == "watchlist_opp"
+    assert report.watchlist[1].kind == "opportunity_scout"
