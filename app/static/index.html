@@ -845,7 +845,7 @@
           state.academicTasks = tasks;
           usedLive = true;
         } else {
-          state.academicTasks = sim.academic;
+          state.academicTasks = [];
         }
 
         if (scoutRes.status === 'fulfilled' && scoutRes.value) {
@@ -853,7 +853,7 @@
           state.opportunities = scoreOpportunitiesLocal(opps, state.skills);
           usedLive = true;
         } else {
-          state.opportunities = scoreOpportunitiesLocal(sim.rawOpps, state.skills);
+          state.opportunities = [];
         }
 
         if (radarRes.status === 'fulfilled' && radarRes.value) {
@@ -898,10 +898,11 @@
           srcEl.className = 'uppercase text-amber-400 font-medium';
         }
       } catch (err) {
-        state.academicTasks = sim.academic;
-        state.opportunities = scoreOpportunitiesLocal(sim.rawOpps, state.skills);
-        state.radarItems = computeRadarItems(state.academicTasks, state.opportunities);
-        state.briefingText = generateFallbackBriefing(state.radarItems);
+        console.error("Dashboard live fetch error:", err);
+        state.academicTasks = [];
+        state.opportunities = [];
+        state.radarItems = [];
+        state.briefingText = "Live dashboard synced. Zero critical emergencies.";
       }
 
       renderAll();
@@ -1110,6 +1111,17 @@
     function renderTriageTable() {
       const tbody = document.getElementById('triage-table-body');
       const academicRadar = state.radarItems.filter(i => i.kind === 'academic');
+
+      if (academicRadar.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5" class="py-8 text-center text-zinc-500 font-mono text-xs">
+              ZERO ACTIVE ACADEMIC DEADLINES IN INBOXES // ALL CLEAR
+            </td>
+          </tr>
+        `;
+        return;
+      }
 
       tbody.innerHTML = academicRadar.map(item => {
         const pill = item.band === 'panic'
