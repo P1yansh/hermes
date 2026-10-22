@@ -12,7 +12,7 @@ async def get_triaged_tasks():
     Instant read query (< 5ms) decoupled from LLM inference latency.
     """
     tasks = db.get_all_tasks()
-    if not tasks:
+    if not tasks and not db.get_all_opportunities():
         await sync_service.sync_all()
         tasks = db.get_all_tasks()
     return tasks

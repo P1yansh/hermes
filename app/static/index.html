@@ -842,7 +842,7 @@
 
         if (triageRes.status === 'fulfilled' && triageRes.value) {
           const tasks = Array.isArray(triageRes.value) ? triageRes.value : (triageRes.value.tasks || triageRes.value.items || []);
-          state.academicTasks = tasks.length ? tasks : sim.academic;
+          state.academicTasks = tasks;
           usedLive = true;
         } else {
           state.academicTasks = sim.academic;
@@ -850,7 +850,7 @@
 
         if (scoutRes.status === 'fulfilled' && scoutRes.value) {
           const opps = Array.isArray(scoutRes.value) ? scoutRes.value : (scoutRes.value.opportunities || scoutRes.value.matches || scoutRes.value.items || []);
-          state.opportunities = opps.length ? scoreOpportunitiesLocal(opps, state.skills) : scoreOpportunitiesLocal(sim.rawOpps, state.skills);
+          state.opportunities = scoreOpportunitiesLocal(opps, state.skills);
           usedLive = true;
         } else {
           state.opportunities = scoreOpportunitiesLocal(sim.rawOpps, state.skills);
@@ -900,9 +900,6 @@
       } catch (err) {
         state.academicTasks = sim.academic;
         state.opportunities = scoreOpportunitiesLocal(sim.rawOpps, state.skills);
-        state.radarItems = computeRadarItems(state.academicTasks, state.opportunities);
-        state.briefingText = generateFallbackBriefing(state.radarItems);
-      }
         state.radarItems = computeRadarItems(state.academicTasks, state.opportunities);
         state.briefingText = generateFallbackBriefing(state.radarItems);
       }
@@ -1030,11 +1027,10 @@
       const upcomingList = filtered.filter(i => i.band === 'upcoming');
 
       // Update KPI metrics
-      document.getElementById('metric-panic').textContent = panicList.length;
-      document.getElementById('metric-imminent').textContent = imminentList.length;
-      document.getElementById('metric-upcoming').textContent = upcomingList.length;
-      document.getElementById('metric-academic').textContent = state.academicTasks.length;
-      document.getElementById('metric-scout').textContent = state.opportunities.length;
+      if (document.getElementById('metric-panic')) document.getElementById('metric-panic').textContent = panicList.length;
+      if (document.getElementById('metric-imminent')) document.getElementById('metric-imminent').textContent = imminentList.length;
+      if (document.getElementById('metric-upcoming')) document.getElementById('metric-upcoming').textContent = upcomingList.length;
+      if (document.getElementById('metric-scout')) document.getElementById('metric-scout').textContent = state.opportunities.length;
       if (document.getElementById('metric-watchlist')) {
         document.getElementById('metric-watchlist').textContent = (state.watchlistItems || []).length;
       }

@@ -12,7 +12,7 @@ async def get_opportunities():
     Returns active hackathons and internships directly from the SQLite store (< 5ms).
     """
     opps = db.get_all_opportunities()
-    if not opps:
+    if not opps and not db.get_all_tasks():
         await sync_service.sync_all()
         opps = db.get_all_opportunities()
     return ScoutReport(total_found=len(opps), matches=opps)
@@ -22,4 +22,4 @@ async def post_custom_scout(profile: UserProfile):
     """
     Filters and ranks opportunities matched against custom developer skills and priorities.
     """
-    return await scout_agent.scout(profile=profile, force_refresh=True)
+    return await scout_agent.scout(profile=profile, force_refresh=False)
