@@ -94,15 +94,25 @@ class MockConnector(BaseConnector):
         now = datetime.now(timezone.utc)
         opportunities: list[OpportunityItem] = []
         for o in raw_data:
-            # A missing relative cutoff means the fixture is undated and must
-            # land on the watchlist. Do not default it to 72 hours.
-            deadline_hours = o.get("deadline_hours_from_now")
+            # Prefer an explicit ISO cutoff for real-world fixtures. Relative
+            # offsets remain for synthetic fixtures that need to move with the
+            # demo clock. Never invent a date when both are missing/invalid.
             deadline = None
-            if deadline_hours is not None:
+            if "deadline" in o:
                 try:
-                    deadline = now + timedelta(hours=float(deadline_hours))
+                    deadline = datetime.fromisoformat(str(o["deadline"]).replace("Z", "+00:00"))
+                    if deadline.tzinfo is None:
+                        deadline = deadline.replace(tzinfo=timezone.utc)
+                    deadline = deadline.astimezone(timezone.utc)
                 except (TypeError, ValueError):
                     deadline = None
+            else:
+                deadline_hours = o.get("deadline_hours_from_now")
+                if deadline_hours is not None:
+                    try:
+                        deadline = now + timedelta(hours=float(deadline_hours))
+                    except (TypeError, ValueError):
+                        deadline = None
             opportunities.append(
                 OpportunityItem(
                     id=o["id"],

@@ -4,7 +4,7 @@
     "title": "Hacktoberfest 2026 Open-Source AI Challenge: Slow and Steady",
     "type": "hackathon",
     "organizer": "DEV Community & Major League Hacking",
-    "deadline_hours_from_now": 96,
+    "deadline": "2026-10-26T06:59:00Z",
     "prizes": "$2,850 USD across 21 winners ($250 grand prize, $200 featured, $100 partner prizes)",
     "tags": ["open-source", "open-weights", "gemma", "render", "elevenlabs", "local-ai", "python", "ai-agents"],
     "description": "Build an open-source AI project that automates dread or rewards laziness. Channel your inner sloth using open weights and agent frameworks.",

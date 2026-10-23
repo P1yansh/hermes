@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 
 import pytest
 from app.connectors.mock_loader import MockConnector
@@ -25,7 +26,8 @@ async def test_mock_loader_opportunities():
     connector = MockConnector()
     opps = await connector.get_opportunities()
     assert len(opps) > 0
-    assert any("Hacktoberfest" in o.title for o in opps)
+    hacktoberfest = next(o for o in opps if "Hacktoberfest" in o.title)
+    assert hacktoberfest.deadline == datetime(2026, 10, 26, 6, 59, tzinfo=timezone.utc)
 
 
 @pytest.mark.asyncio
@@ -64,6 +66,16 @@ async def test_mock_loader_does_not_invent_missing_or_invalid_deadlines(tmp_path
             "description": "The fixture has a malformed date.",
             "url": "https://example.com/fellowship",
             "deadline_hours_from_now": "soon",
+        },
+        {
+            "id": "opp_invalid_explicit",
+            "title": "Explicitly Malformed Fellowship",
+            "type": "grant",
+            "organizer": "Example Foundation",
+            "description": "The explicit date is malformed and must not fall back.",
+            "url": "https://example.com/fellowship",
+            "deadline": "not-a-date",
+            "deadline_hours_from_now": 24,
         },
     ]), encoding="utf-8")
 
