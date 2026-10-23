@@ -20,7 +20,7 @@ class RadarEngine:
             hrs = round(hours_remaining, 1)
             return UrgencyTier.APPROACHING, f"abhi to {hrs} ghante hai :)"
         else:
-            days = max(1, round(hours_remaining / 24.0))
+            days = max(1, int(hours_remaining // 24.0))
             return UrgencyTier.CHILL, f"abhi kyu karna, {days} days baki hai"
 
     @classmethod

@@ -24,6 +24,10 @@ def test_urgency_tier_classification():
     assert tier == UrgencyTier.CHILL
     assert "abhi kyu karna, 2 days baki hai" == msg
 
+    tier, msg = RadarEngine.classify_urgency(61.4)
+    assert tier == UrgencyTier.CHILL
+    assert "abhi kyu karna, 2 days baki hai" == msg
+
     tier, msg = RadarEngine.classify_urgency(96.0)
     assert tier == UrgencyTier.CHILL
     assert "abhi kyu karna, 4 days baki hai" == msg

@@ -708,7 +708,7 @@
         } else if (hoursRemaining <= 24) {
           sloth_message = `abhi to ${Math.max(0.1, hoursRemaining).toFixed(1)} ghante hai :)`;
         } else {
-          sloth_message = `abhi kyu karna, ${Math.max(1, Math.round(hoursRemaining / 24))} days baki hai`;
+          sloth_message = `abhi kyu karna, ${Math.max(1, Math.floor(hoursRemaining / 24))} days baki hai`;
         }
 
         combined.push({
@@ -750,7 +750,7 @@
         } else if (hoursRemaining <= 24) {
           sloth_message = `abhi to ${Math.max(0.1, hoursRemaining).toFixed(1)} ghante hai :)`;
         } else {
-          sloth_message = `abhi kyu karna, ${Math.max(1, Math.round(hoursRemaining / 24))} days baki hai`;
+          sloth_message = `abhi kyu karna, ${Math.max(1, Math.floor(hoursRemaining / 24))} days baki hai`;
         }
 
         combined.push({
