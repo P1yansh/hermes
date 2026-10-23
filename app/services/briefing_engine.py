@@ -25,7 +25,7 @@ class BriefingEngine:
         headline = (
             f"🚨 {len(critical_items)} Critical Cutoff(s) Due in <6 Hours!"
             if critical_items else
-            (f"⚠️ {len(approaching_items)} Task(s) Due Within 24 Hours" if approaching_items else "🟢 All Clear: Abhi kyu karna, relax!")
+            (f"⚠️ {len(approaching_items)} Task(s) Due Within 24 Hours" if approaching_items else "🟢 All Clear: Nothing urgent, relax.")
         )
 
         return DailyBriefing(

@@ -18,7 +18,7 @@ Hermes runs in the background and takes care of this:
    - 🔴 **Panic** (`< 6 hours`): *"jaldi kar alsi, warna gaya bas {x} hours baki hai"*
    - 🟡 **Approaching** (`6h - 24 hours`): *"abhi to {x} ghante hai :)"*
    - 🟢 **Chill** (`> 24 hours`): *"abhi kyu karna, {x} days baki hai"*
-5. **Morning Voice Briefing**: Generates a 60-second Hinglish summary script and synthesizes it into an MP3 via ElevenLabs, with content-addressable caching. If ElevenLabs is not configured or the request fails, the API returns `503` and the dashboard falls back to browser speech synthesis. No silent placeholder MP3 is written to the cache.
+5. **Morning Voice Briefing**: Generates a 60-second English summary script and synthesizes it into an MP3 via ElevenLabs, with content-addressable caching. If ElevenLabs is not configured or the request fails, the API returns `503` and the dashboard falls back to browser speech synthesis. No silent placeholder MP3 is written to the cache.
 6. **Embedded Dark Dashboard**: A single-page, glassmorphic UI served directly by FastAPI at `http://localhost:8000/`, with one-click inbox syncing, urgency swimlanes, and an inline audio briefing player.
 
 ---
@@ -162,7 +162,7 @@ uv run pytest -v -W error::ResourceWarning
 - `GET /api/scout` — Scored hackathons and internships. Ineligible rows are filtered out.
 - `POST /api/scout` — Filter opportunities with a custom developer skill profile.
 - `GET /api/radar` — Unified urgency matrix sorted chronologically. Items without a deadline go to the watchlist, never a fabricated band.
-- `GET /api/briefing` — Hinglish morning script generated from the active radar, plus the real SHA-256 audio cache key.
+- `GET /api/briefing` — English morning script generated from the active radar, plus the real SHA-256 audio cache key.
 - `GET /api/briefing/audio` — Streams the cached ElevenLabs MP3. Returns `503` when synthesis is unavailable so the UI can fall back to browser speech.
 - `GET /api/telemetry/gemma` — Live llama-server probe: model, quantization, tokens/sec, prompt latency, context size, and VRAM if `nvidia-smi` is available.
 

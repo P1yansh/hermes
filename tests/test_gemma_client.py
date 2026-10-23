@@ -18,13 +18,26 @@ def test_deadline_grammar_file_is_present():
 
 
 @pytest.mark.asyncio
-async def test_briefing_fallback_keeps_hinglish_persona():
+async def test_briefing_script_is_english(monkeypatch):
     # conftest patches llama-server calls to return None.
     script = await client.generate_briefing_script(
         panic_items=[{"title": "CS401 Lab 3", "source": "CS401", "hours_left": 3.5}],
         imminent_items=[],
         top_opp=None,
     )
-    assert "Uth ja, alsi" in script
-    assert "ghante" in script
+    assert "Time to get up" in script
+    assert "hours" in script
+    assert "ghante" not in script
+    assert "Uth ja" not in script
     assert "*" not in script
+
+    captured = {}
+
+    async def fake_call(user_prompt, system, json_mode=False):
+        captured["system"] = system
+        return "English briefing."
+
+    monkeypatch.setattr(client, "_call_chat", fake_call)
+    assert await client.generate_briefing_script([], [], None) == "English briefing."
+    assert "English only" in captured["system"]
+    assert "Do not use Hinglish" in captured["system"]

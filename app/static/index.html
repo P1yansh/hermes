@@ -783,7 +783,7 @@
 
       let script = `Good morning. Hermes Autonomous Triage online with the local Gemma 3 4B inference path and a deterministic fallback.\n\n`;
       if (panicItems.length > 0) {
-        script += `CRITICAL ALERT: You have ${panicItems.length} cutoffs in the red Panic band under 6 hours ("jaldi kar alsi, warna gaya"). `;
+        script += `CRITICAL ALERT: You have ${panicItems.length} cutoffs in the red Panic band under 6 hours. `;
         if (topPanic) {
           script += `Priority one is "${topPanic.title}" for ${topPanic.context}, closing in ${ Math.max(0.1, topPanic.hours_remaining).toFixed(1) } hours. `;
         }
@@ -796,7 +796,7 @@
         script += `All clear on the critical 6-hour Panic band. Zero immediate submission emergencies.\n\n`;
       }
 
-      script += `Across the 24-hour horizon, ${imminentItems.length} items are approaching ("abhi to ghante hai :)")—including high-match opportunities aligned with your Python, C++, and Systems profile. Focus on your top deliverable first.`;
+      script += `Across the 24-hour horizon, ${imminentItems.length} items are approaching, including high-match opportunities aligned with your Python, C++, and Systems profile. Focus on your top deliverable first.`;
       return script;
     }
 
@@ -1393,7 +1393,8 @@
       // First try streaming from FastAPI /api/briefing/audio if in API mode
       if (state.mode === 'api') {
         try {
-          const res = await fetch('/api/briefing/audio');
+          const audioUrl = `/api/briefing/audio?v=${encodeURIComponent(state.audioHash || Date.now())}`;
+          const res = await fetch(audioUrl, { cache: 'no-store' });
           if (res.ok && res.headers.get('content-type')?.includes('audio')) {
             const blob = await res.blob();
             audioEl.src = URL.createObjectURL(blob);

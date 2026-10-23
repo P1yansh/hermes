@@ -387,19 +387,19 @@ class GemmaClient:
 
     async def generate_briefing_script(self, panic_items: list[dict], imminent_items: list[dict], top_opp: Optional[dict]) -> str:
         system_prompt = (
-            "You are Hermes, the Maha-Aalsi AI: a student deadline assistant who would rather "
-            "nap than panic, but refuses to let a real cutoff slip. Speak in natural Hinglish, "
-            "the way a tired senior would warn a junior in a hostel mess. Keep a calm, slightly "
-            "lazy, direct tone. Generate a 60-second morning spoken briefing. Name what is due "
-            "in the next 6 hours, what is coming in the next 24 hours, and one opportunity worth "
-            "getting off the bed for. Use short sentences and at least three Hinglish phrases "
-            "such as 'uth ja, alsi', 'jaldi kar', 'baki sab chill hai', or 'kaam abhi kar le'. "
-            "Do not write formal corporate English. No markdown, asterisks, bullet points, or "
-            "stage directions. Do not use gaali, profanity, or insults. Do not invent the current "
-            "clock time or claim it is morning, noon, or night; use only the hours remaining. "
+            "You are Hermes, a proudly lazy student deadline assistant. You would rather "
+            "nap than panic, but you refuse to let a real cutoff slip. Speak in natural "
+            "English only. Do not use Hinglish, Hindi transliteration, or Devanagari. "
+            "Keep a calm, direct, slightly lazy tone. Generate a 60-second spoken briefing. "
+            "Name what is due in the next 6 hours, what is coming in the next 24 hours, and "
+            "one opportunity worth getting out of bed for. Use short sentences. Do not write "
+            "formal corporate English. No markdown, asterisks, bullet points, or stage "
+            "directions. Do not use profanity or insults. Do not invent the current clock "
+            "time or claim it is morning, noon, or night; use only the hours remaining. "
             "Return plain text only.\n\n"
-            "Example tone: 'Uth ja, alsi. Aaj ek hi cheez panic mein hai: CS401 Lab 3, "
-            "chaar ghante baki. Baaki sab chill hai. GSoC ka form bhi dekh le, but pehle lab.'"
+            "Example tone: 'Time to get up. One thing is in the panic band: CS401 Lab 3, "
+            "four hours left. Everything else can wait. The GSoC form is worth a look, "
+            "but the lab comes first.'"
         )
         user_prompt = (
             f"Panic items due in < 6 hours: {panic_items}\n"
@@ -411,25 +411,32 @@ class GemmaClient:
             # Strip stray markdown emphasis from small-model output.
             return response.replace("*", "").strip()
 
-        # Deterministic Hinglish fallback so offline demos still match the persona.
+        # Deterministic English fallback so offline demos still match the persona.
         if panic_items:
             first = panic_items[0]
+            panic_count = len(panic_items)
+            panic_label = "one item" if panic_count == 1 else f"{panic_count} items"
             return (
-                f"Uth ja, alsi. {len(panic_items)} kaam panic band mein hain. "
-                f"Sabse pehle {first.get('title', 'ek deadline')} — "
-                f"{first.get('hours_left', 0)} ghante baki hain. "
-                f"Uske baad {len(imminent_items)} cheezein 24 ghante ke andar hain. "
-                "Baaki sab chill hai, lekin pehle wala abhi kar le."
+                f"Time to get up. There {'is' if panic_count == 1 else 'are'} {panic_label} "
+                "in the panic band. "
+                f"The first is {first.get('title', 'a deadline')}, due in "
+                f"{first.get('hours_left', 0)} hours. "
+                f"After that, {len(imminent_items)} more items land within 24 hours. "
+                "Everything else can wait. Handle the first one now."
             )
         if imminent_items:
+            imminent_count = len(imminent_items)
+            imminent_label = (
+                "one deadline" if imminent_count == 1 else f"{imminent_count} deadlines"
+            )
             return (
-                f"Abhi koi emergency nahi hai. {len(imminent_items)} deadline 24 ghante ke andar "
-                "aa rahi hain. Aaj thoda kaam kar le, kal ki tension bachegi. "
-                "Top opportunity bhi dashboard par wait kar rahi hai."
+                f"No emergencies right now. There {'is' if imminent_count == 1 else 'are'} "
+                f"{imminent_label} coming up within 24 hours. Do a little work today so "
+                "tomorrow stays quiet. The top opportunity is also waiting on the dashboard."
             )
         return (
-            "Sab clear hai. Aaj koi panic deadline nahi hai. "
-            "Laptop band kar, paani pi, aur agle hafte ke kaam ke liye thoda buffer bana le."
+            "All clear. No panic deadlines today. "
+            "Close the laptop, drink some water, and build a small buffer for next week."
         )
 
 gemma_client = GemmaClient()
