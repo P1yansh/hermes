@@ -23,7 +23,7 @@ A local `llama-server` runs `gemma-3-4b-it` at Q4_K_M. The model extracts struct
 
 ## Demo & Telemetry Receipts
 
-![Hermes dashboard showing 0 Panic, 1 Approaching, 15 Chill, 15 Watchlist items, 10 Scout matches, and live local telemetry: gemma-3-4b-it at 42.6 tok/s on 4.34 of 6.00 GB VRAM.](https://raw.githubusercontent.com/P1yansh/hermes/d5119a9/docs/images/hermes-dashboard.png)
+![Hermes dashboard showing 0 Panic, 1 Approaching, 15 Chill, 15 Watchlist items, 10 Scout matches, and live local telemetry: gemma-3-4b-it at 42.6 tok/s on 4.34 of 6.00 GB VRAM.](https://raw.githubusercontent.com/P1yansh/hermes/fb1c77b/docs/images/hermes-dashboard.png)
 
 The task rows in that image come from my local Hermes instance. The Render demo uses the mock judge dataset, so its counts will differ. **The telemetry strip is not hardcoded.** It is fetched from `GET /api/telemetry/gemma`, which probes the local llama-server and `nvidia-smi` on every cache miss. I removed the old hardcoded "6 GB VRAM" and "50 tok/s" labels because a screenshot should not be the source of truth.
 
