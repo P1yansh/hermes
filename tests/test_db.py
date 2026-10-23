@@ -1,3 +1,5 @@
+import sqlite3
+
 import pytest
 from datetime import datetime, timezone, timedelta
 
@@ -11,6 +13,76 @@ def test_db(tmp_path):
     database = Database(db_path=str(db_file))
     database.init_db()
     return database
+
+
+def test_init_db_migrates_legacy_not_null_deadline(tmp_path):
+    db_file = tmp_path / "legacy_hermes.db"
+    conn = sqlite3.connect(db_file)
+    conn.execute("""
+        CREATE TABLE opportunities (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            type TEXT NOT NULL,
+            organizer TEXT NOT NULL,
+            deadline TEXT NOT NULL,
+            prizes TEXT,
+            tags TEXT,
+            description TEXT NOT NULL,
+            url TEXT NOT NULL,
+            relevance_score INTEGER DEFAULT 5,
+            updated_at TEXT NOT NULL
+        )
+    """)
+    conn.execute(
+        """
+        INSERT INTO opportunities (
+            id, title, type, organizer, deadline, description, url, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            "legacy_1",
+            "Legacy Hackathon",
+            "hackathon",
+            "Legacy Org",
+            "2026-11-01T12:00:00+00:00",
+            "Old row",
+            "https://example.com/legacy",
+            "2026-10-01T00:00:00+00:00",
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+    database = Database(db_path=str(db_file))
+    database.init_db()
+    database.init_db()  # migration must be idempotent
+
+    with database.connection() as conn:
+        columns = {row["name"]: row for row in conn.execute("PRAGMA table_info(opportunities)")}
+        assert columns["deadline"]["notnull"] == 0
+        indexes = {row["name"] for row in conn.execute("PRAGMA index_list(opportunities)")}
+        assert "idx_opportunities_deadline" in indexes
+        legacy = conn.execute(
+            "SELECT title, deadline FROM opportunities WHERE id = 'legacy_1'"
+        ).fetchone()
+        assert legacy["title"] == "Legacy Hackathon"
+        assert legacy["deadline"] == "2026-11-01T12:00:00+00:00"
+
+    unconfirmed = OpportunityItem(
+        id="opp_unconfirmed",
+        title="Unconfirmed Deadline Hackathon",
+        type="hackathon",
+        organizer="DEV",
+        deadline=None,
+        description="No cutoff yet",
+        url="https://example.com/unconfirmed",
+        has_explicit_deadline=False,
+    )
+    database.save_ingestion_batch([], [unconfirmed], [])
+
+    opps = {opp.id: opp for opp in database.get_all_opportunities()}
+    assert opps["opp_unconfirmed"].deadline is None
+    assert opps["opp_unconfirmed"].has_explicit_deadline is False
 
 def test_db_init_and_seen_items(test_db):
     assert not test_db.is_item_seen("msg_123")

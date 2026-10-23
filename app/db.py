@@ -50,6 +50,68 @@ class Database:
         finally:
             conn.close()
 
+    def _migrate_opportunities_deadline_nullable(self, conn: sqlite3.Connection):
+        """Rebuild a legacy opportunities table whose deadline column is NOT NULL.
+
+        CREATE TABLE IF NOT EXISTS cannot change an existing table. SQLite also
+        has no ALTER COLUMN, so the only safe migration is a table rebuild.
+        """
+        columns = {row["name"]: row for row in conn.execute("PRAGMA table_info(opportunities)")}
+        deadline = columns.get("deadline")
+        if not deadline or not deadline["notnull"]:
+            return
+
+        for index in (
+            "idx_opportunities_deadline",
+            "idx_opportunities_thread",
+            "idx_opportunities_slug",
+            "idx_opportunities_eligible",
+        ):
+            conn.execute(f"DROP INDEX IF EXISTS {index}")
+
+        conn.execute("DROP TABLE IF EXISTS opportunities_new")
+        conn.execute("""
+            CREATE TABLE opportunities_new (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                type TEXT NOT NULL,
+                organizer TEXT NOT NULL,
+                deadline TEXT,
+                prizes TEXT,
+                tags TEXT,
+                description TEXT NOT NULL,
+                url TEXT NOT NULL,
+                relevance_score INTEGER DEFAULT 5,
+                mode TEXT DEFAULT 'online',
+                city TEXT,
+                country TEXT DEFAULT 'India',
+                eligible INTEGER DEFAULT 1,
+                eligibility_reason TEXT,
+                source_inbox TEXT,
+                match_score INTEGER,
+                has_explicit_deadline INTEGER DEFAULT 1,
+                thread_id TEXT,
+                canonical_slug TEXT,
+                updated_at TEXT NOT NULL
+            )
+        """)
+        conn.execute("""
+            INSERT INTO opportunities_new (
+                id, title, type, organizer, deadline, prizes, tags, description,
+                url, relevance_score, mode, city, country, eligible,
+                eligibility_reason, source_inbox, match_score,
+                has_explicit_deadline, thread_id, canonical_slug, updated_at
+            )
+            SELECT
+                id, title, type, organizer, deadline, prizes, tags, description,
+                url, relevance_score, mode, city, country, eligible,
+                eligibility_reason, source_inbox, match_score,
+                has_explicit_deadline, thread_id, canonical_slug, updated_at
+            FROM opportunities
+        """)
+        conn.execute("DROP TABLE opportunities")
+        conn.execute("ALTER TABLE opportunities_new RENAME TO opportunities")
+
     def init_db(self):
         with self.connection() as conn:
             cursor = conn.cursor()
@@ -175,6 +237,10 @@ class Database:
                 except sqlite3.OperationalError as exc:
                     if "duplicate column name" not in str(exc).lower():
                         raise
+
+            # v1 databases declared opportunities.deadline as NOT NULL.
+            # Rebuild once so unconfirmed opportunities can store NULL.
+            self._migrate_opportunities_deadline_nullable(conn)
 
             # Query-path indexes. The dashboard reads by deadline, deduplicates
             # by thread/slug, and looks up ledger rows on every sync.
