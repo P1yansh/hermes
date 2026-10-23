@@ -37,6 +37,8 @@ config/accounts.json
 
 # Databases
 *.db
+*.db-wal
+*.db-shm
 data/*.db
 data/hermes.db
 
