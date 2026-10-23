@@ -6,27 +6,41 @@ from app.agents.scout_agent import is_geo_eligible, score_opportunity, TARGET_CO
 from app.agents.triage_agent import AcademicTriageAgent
 
 def test_multi_account_loading():
-    connector = GoogleLiveConnector(accounts_config_path="config/accounts.json")
+    connector = GoogleLiveConnector(accounts_config_path="config/accounts.example.json")
     assert len(connector.accounts) == 3
     
-    college_acc = next(a for a in connector.accounts if a["id"] == "college_iiitl")
+    college_acc = next(a for a in connector.accounts if a.get("enable_classroom"))
     assert college_acc["enable_gmail"] is True
     assert college_acc["enable_classroom"] is True
-    
-    personal_acc = next(a for a in connector.accounts if a["id"] == "piyansh_dev")
+
+    personal_acc = next(a for a in connector.accounts if not a.get("enable_classroom"))
     assert personal_acc["enable_gmail"] is True
+
+def test_classroom_missing_due_date_is_none():
+    assert GoogleLiveConnector._parse_due_at({}) is None
+    assert GoogleLiveConnector._parse_due_at({"dueDate": None}) is None
+    assert GoogleLiveConnector._parse_due_at({"dueDate": {"month": 10, "day": 23}}) is None
+    assert GoogleLiveConnector._parse_due_at({"dueDate": {"year": 2026}}) is None
+
+    parsed = GoogleLiveConnector._parse_due_at({
+        "dueDate": {"year": 2026, "month": 11, "day": 5},
+        "dueTime": {"hours": 18, "minutes": 30},
+    })
+    assert parsed is not None
+    assert (parsed.year, parsed.month, parsed.day, parsed.hour, parsed.minute) == (2026, 11, 5, 18, 30)
+
 
 def test_geo_fencing_rules():
     # 1. Offline hackathon in Lucknow -> KEEP
     lucknow_hack = OpportunityItem(
         id="opp_lko",
-        title="HackIIITL 2026",
+        title="Lucknow Tech Fest 2026",
         type="hackathon",
-        organizer="IIIT Lucknow",
+        organizer="Lucknow Tech Community",
         deadline=datetime.now(timezone.utc),
         tags=["Python"],
         description="Local hackathon",
-        url="https://iiitl.ac.in",
+        url="https://example.edu",
         mode="offline",
         city="Lucknow",
         country="India"
@@ -129,7 +143,7 @@ def test_stage1_email_intent_classifier():
 
     # Academic assignment
     assert AcademicTriageAgent.classify_email_intent(
-        sender="prof.sharma@iiitl.ac.in",
+        sender="prof.sharma@example.edu",
         subject="CS301 Lab 3 Due Date Extension",
         body="Problem Set 3 is now due on Friday at 11:59 PM. Please submit your github repo."
     ) == "academic"

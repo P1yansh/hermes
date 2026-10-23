@@ -46,5 +46,16 @@
     "description": "Build decentralized finance protocols and algorithmic trading smart contracts.",
     "url": "https://fintechhack.example.com",
     "relevance_score": 4
+  },
+  {
+    "id": "opp_005",
+    "title": "Undergraduate Research Fellowship 2027",
+    "type": "grant",
+    "organizer": "Example Research Institute",
+    "prizes": "Summer stipend + compute credits",
+    "tags": ["research", "ai-agents", "open-source"],
+    "description": "Application window opens later this year. The exact cutoff has not been announced, so this stays on the watchlist.",
+    "url": "https://example.com/research-fellowship",
+    "relevance_score": 8
   }
 ]

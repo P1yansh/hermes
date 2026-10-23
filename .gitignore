@@ -33,6 +33,7 @@ token.json
 tokens/
 credentials.json
 client_secret*.json
+config/accounts.json
 
 # Databases
 *.db

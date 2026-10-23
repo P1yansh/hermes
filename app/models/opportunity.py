@@ -27,7 +27,7 @@ class OpportunityItem(BaseModel):
     canonical_slug: Optional[str] = None
 
 class UserProfile(BaseModel):
-    name: str = "P1yansh"
+    name: str = "Student"
     university: str = "Computer Science"
     interests: list[str] = Field(default_factory=lambda: ["AI Agents", "Local LLMs", "Systems", "Open Source"])
     skills: list[str] = Field(default_factory=lambda: ["Python", "C++", "FastAPI", "Linux", "llama.cpp"])

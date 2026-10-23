@@ -53,6 +53,14 @@
         "max_points": 50,
         "submission_url": "https://classroom.google.com/c/MATH302/a/cw_004",
         "status": "pending"
+      },
+      {
+        "id": "cw_005",
+        "title": "Capstone Paper: Final Submission",
+        "description": "The department has not published the final cutoff yet. Track it on the watchlist.",
+        "max_points": 100,
+        "submission_url": "https://classroom.google.com/c/MATH302/a/cw_005",
+        "status": "pending"
       }
     ]
   }

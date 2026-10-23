@@ -1,9 +1,19 @@
 import json
+import logging
 import re
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
+from zoneinfo import ZoneInfo
+
 import httpx
+
 from app.config import settings
+from app.models.extraction import EmailExtraction
+
+logger = logging.getLogger(__name__)
+
+GRAMMAR_PATH = Path(__file__).resolve().parent.parent / "grammars" / "deadline_extraction.gbnf"
 
 class GemmaClient:
     def __init__(
@@ -11,14 +21,26 @@ class GemmaClient:
         base_url: str = settings.LOCAL_LLM_URL,
         model: str = settings.LOCAL_LLM_MODEL,
         api_key: str = settings.LOCAL_LLM_API_KEY,
-        timeout: float = 15.0
+        timeout: float = 30.0
     ):
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.api_key = api_key
         self.timeout = timeout
+        self._grammar: Optional[str] = None
 
-    async def _call_chat(self, prompt: str, system: Optional[str] = None, json_mode: bool = True) -> Optional[str]:
+    def _deadline_grammar(self) -> Optional[str]:
+        if self._grammar is None and GRAMMAR_PATH.exists():
+            self._grammar = GRAMMAR_PATH.read_text(encoding="utf-8")
+        return self._grammar
+
+    async def _call_chat(
+        self,
+        prompt: str,
+        system: Optional[str] = None,
+        json_mode: bool = True,
+        grammar: Optional[str] = None,
+    ) -> Optional[str]:
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
@@ -30,7 +52,9 @@ class GemmaClient:
             "temperature": 0.1,
             "max_tokens": 1024,
         }
-        if json_mode:
+        if grammar:
+            payload["grammar"] = grammar
+        elif json_mode:
             payload["response_format"] = {"type": "json_object"}
 
         headers = {
@@ -44,8 +68,9 @@ class GemmaClient:
                 if res.status_code == 200:
                     data = res.json()
                     return data["choices"][0]["message"]["content"]
-        except Exception:
-            return None
+                logger.debug("Gemma returned HTTP %s", res.status_code)
+        except Exception as exc:
+            logger.debug("Gemma request failed: %s", exc)
         return None
 
     async def extract_email_task(
@@ -94,7 +119,7 @@ class GemmaClient:
             "--- Example 1 ---\n"
             "Sender: SerpApi <contact@serpapi.com>\n"
             "Subject: Welcome to SerpApi!\n"
-            "Body: Welcome to SerpApi! Hi Piyansh, To scrape search results with our API...\n"
+            "Body: Welcome to SerpApi! Hi student, To scrape search results with our API...\n"
             "Output: {\n"
             '  "category": "INFORMATIONAL_ALERT",\n'
             '  "has_explicit_deadline": false,\n'
@@ -143,7 +168,7 @@ class GemmaClient:
             '  "estimated_hours": 8.0\n'
             "}\n\n"
             "--- Example 4 ---\n"
-            "Sender: Prof. Menon <menon@iiitl.ac.in>\n"
+            "Sender: Prof. Menon <menon@example.edu>\n"
             "Subject: CS401: Distributed Systems - Lab 3 Submission Cutoff Tonight\n"
             "Body: Lab 3 consensus engine is due tonight by 11:59 PM on Classroom.\n"
             "Context Anchor: 2026-10-22 14:00:00 IST (Thursday)\n"
@@ -164,20 +189,25 @@ class GemmaClient:
 
         user_prompt = f"Sender: {sender}\nSubject: {subject}\nReceived Context: {anchor}\nBody:\n{body[:1500]}"
 
-        response = await self._call_chat(user_prompt, system=system_prompt, json_mode=True)
+        response = await self._call_chat(
+            user_prompt,
+            system=system_prompt,
+            json_mode=True,
+            grammar=self._deadline_grammar(),
+        )
         if response:
             try:
                 clean = re.sub(r"^```(?:json)?", "", response.strip(), flags=re.MULTILINE)
                 clean = re.sub(r"```$", "", clean.strip(), flags=re.MULTILINE)
-                data = json.loads(clean.strip())
-                # Backwards-compatible keys
-                data["has_action"] = data.get("category") in ("ACADEMIC_DEADLINE", "OPPORTUNITY_DEADLINE")
-                data["is_spam"] = data.get("category") in ("SPAM_NOISE", "INFORMATIONAL_ALERT")
-                data["course"] = data.get("course_or_organizer", "")
-                data["deadline_text"] = data.get("deadline_verbatim") or data.get("exact_deadline_iso")
+                data = EmailExtraction.model_validate(json.loads(clean.strip())).model_dump()
+                # Backwards-compatible keys used by the triage agent.
+                data["has_action"] = data["category"] in ("ACADEMIC_DEADLINE", "OPPORTUNITY_DEADLINE")
+                data["is_spam"] = data["category"] in ("SPAM_NOISE", "INFORMATIONAL_ALERT")
+                data["course"] = data["course_or_organizer"]
+                data["deadline_text"] = data["deadline_verbatim"] or data["exact_deadline_iso"]
                 return data
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Gemma extraction was not valid JSON/schema: %s", exc)
 
         # Robust deterministic fallback
         lower_text = f"{subject} {body}".lower()
@@ -194,6 +224,7 @@ class GemmaClient:
                 "course_or_organizer": sender.split("<")[0].strip(),
                 "exact_deadline_iso": None,
                 "deadline_verbatim": None,
+                "deadline_text": None,
                 "needs_web_search": False,
                 "search_query": None,
                 "action_required": "None",
@@ -212,6 +243,7 @@ class GemmaClient:
                 "course_or_organizer": sender,
                 "exact_deadline_iso": None,
                 "deadline_verbatim": None,
+                "deadline_text": None,
                 "needs_web_search": False,
                 "search_query": None,
                 "action_required": "None",
@@ -232,6 +264,7 @@ class GemmaClient:
                 "course_or_organizer": sender.split("<")[0].strip() or "Opportunity",
                 "exact_deadline_iso": None,
                 "deadline_verbatim": "See Event" if has_due else None,
+                "deadline_text": "See Event" if has_due else None,
                 "needs_web_search": not has_due,
                 "search_query": f"{subject} 2026 deadline" if not has_due else None,
                 "action_required": "Register/Submit project",
@@ -253,6 +286,7 @@ class GemmaClient:
             "course_or_organizer": course,
             "exact_deadline_iso": None,
             "deadline_verbatim": "Tonight 11:59 PM" if "tonight" in lower_text else ("Tomorrow 6:00 PM" if "tomorrow" in lower_text else None),
+            "deadline_text": "Tonight 11:59 PM" if "tonight" in lower_text else ("Tomorrow 6:00 PM" if "tomorrow" in lower_text else None),
             "needs_web_search": False,
             "search_query": None,
             "action_required": "Submit coursework before cutoff" if has_due else "None",
@@ -271,7 +305,15 @@ class GemmaClient:
         if not snippets:
             return None
 
-        anchor = anchor_ist or datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S IST")
+        if anchor_ist:
+            anchor = anchor_ist
+        else:
+            try:
+                anchor = datetime.now(ZoneInfo(settings.USER_TIMEZONE)).strftime(
+                    "%Y-%m-%d %H:%M:%S %Z"
+                )
+            except Exception:
+                anchor = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
         combined_text = "\n".join(f"- {s}" for s in snippets[:4])
 
         system_prompt = (
@@ -345,25 +387,49 @@ class GemmaClient:
 
     async def generate_briefing_script(self, panic_items: list[dict], imminent_items: list[dict], top_opp: Optional[dict]) -> str:
         system_prompt = (
-            "You are Hermes, an academic intelligence assistant with a calm, reassuring, and direct tone. "
-            "Generate a concise 60-second morning spoken briefing for the student. "
-            "Highlight what is urgently due today, what is coming up tomorrow, and one exciting opportunity. "
-            "Do NOT include markdown, bullet points, or stage directions. Return plain conversational text only."
+            "You are Hermes, the Maha-Aalsi AI: a student deadline assistant who would rather "
+            "nap than panic, but refuses to let a real cutoff slip. Speak in natural Hinglish, "
+            "the way a tired senior would warn a junior in a hostel mess. Keep a calm, slightly "
+            "lazy, direct tone. Generate a 60-second morning spoken briefing. Name what is due "
+            "in the next 6 hours, what is coming in the next 24 hours, and one opportunity worth "
+            "getting off the bed for. Use short sentences and at least three Hinglish phrases "
+            "such as 'uth ja, alsi', 'jaldi kar', 'baki sab chill hai', or 'kaam abhi kar le'. "
+            "Do not write formal corporate English. No markdown, asterisks, bullet points, or "
+            "stage directions. Do not use gaali, profanity, or insults. Do not invent the current "
+            "clock time or claim it is morning, noon, or night; use only the hours remaining. "
+            "Return plain text only.\n\n"
+            "Example tone: 'Uth ja, alsi. Aaj ek hi cheez panic mein hai: CS401 Lab 3, "
+            "chaar ghante baki. Baaki sab chill hai. GSoC ka form bhi dekh le, but pehle lab.'"
         )
         user_prompt = (
-            f"Panic items due in < 24 hours: {panic_items}\n"
-            f"Imminent items due in 1-3 days: {imminent_items}\n"
+            f"Panic items due in < 6 hours: {panic_items}\n"
+            f"Imminent items due in 6-24 hours: {imminent_items}\n"
             f"Top Opportunity: {top_opp}\n"
         )
         response = await self._call_chat(user_prompt, system=system_prompt, json_mode=False)
         if response:
-            return response.strip()
+            # Strip stray markdown emphasis from small-model output.
+            return response.replace("*", "").strip()
 
-        # Fallback script
+        # Deterministic Hinglish fallback so offline demos still match the persona.
+        if panic_items:
+            first = panic_items[0]
+            return (
+                f"Uth ja, alsi. {len(panic_items)} kaam panic band mein hain. "
+                f"Sabse pehle {first.get('title', 'ek deadline')} — "
+                f"{first.get('hours_left', 0)} ghante baki hain. "
+                f"Uske baad {len(imminent_items)} cheezein 24 ghante ke andar hain. "
+                "Baaki sab chill hai, lekin pehle wala abhi kar le."
+            )
+        if imminent_items:
+            return (
+                f"Abhi koi emergency nahi hai. {len(imminent_items)} deadline 24 ghante ke andar "
+                "aa rahi hain. Aaj thoda kaam kar le, kal ki tension bachegi. "
+                "Top opportunity bhi dashboard par wait kar rahi hai."
+            )
         return (
-            f"Good morning. You have {len(panic_items)} items requiring attention today, "
-            f"and {len(imminent_items)} active cutoffs approaching. "
-            "Check your dashboard to stay ahead of upcoming deadlines."
+            "Sab clear hai. Aaj koi panic deadline nahi hai. "
+            "Laptop band kar, paani pi, aur agle hafte ke kaam ke liye thoda buffer bana le."
         )
 
 gemma_client = GemmaClient()

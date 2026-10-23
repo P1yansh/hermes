@@ -1,7 +1,38 @@
 import pytest
+
 from app.agents.scout_agent import OpportunityScoutAgent
+from app.connectors.base import BaseConnector
 from app.connectors.mock_loader import MockConnector
 from app.models.opportunity import UserProfile
+
+class _CountingConnector(BaseConnector):
+    def __init__(self):
+        self.mock = MockConnector()
+        self.calls = 0
+
+    async def get_recent_emails(self, max_results: int = 10):
+        return await self.mock.get_recent_emails(max_results)
+
+    async def get_classroom_courses(self):
+        return await self.mock.get_classroom_courses()
+
+    async def get_opportunities(self):
+        self.calls += 1
+        return await self.mock.get_opportunities()
+
+
+@pytest.mark.asyncio
+async def test_scout_polls_connector_on_every_incremental_sync():
+    connector = _CountingConnector()
+    agent = OpportunityScoutAgent(connector=connector)
+
+    first = await agent.scout(force_refresh=False)
+    second = await agent.scout(force_refresh=False)
+
+    assert connector.calls == 2
+    assert first.total_found == second.total_found
+    assert second.total_found > 0
+
 
 @pytest.mark.asyncio
 async def test_scout_agent_default_profile():

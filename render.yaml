@@ -12,14 +12,20 @@ services:
       - key: DATA_SOURCE
         value: mock
       - key: USER_TIMEZONE
-        value: "UTC"
+        value: "Asia/Kolkata"
       - key: ENV
         value: production
       - key: CORS_ORIGINS
         value: "*"
+      # The free instance has no GPU. Point this at a reachable llama-server
+      # only if you are running one; otherwise telemetry reports offline and
+      # the deterministic triage fallback stays active.
       - key: LOCAL_LLM_URL
         value: "http://127.0.0.1:8080/v1"
       - key: LOCAL_LLM_MODEL
-        value: "gemma-2-9b-it"
+        value: "gemma-3-4b-it"
       - key: ELEVENLABS_VOICE_ID
-        value: "21m00Tcm4TlvDq8ikWAM"
+        value: "JBFqnCBsd6RMkjVDRZzb"
+      # Set the real key in the Render dashboard. Never commit it here.
+      - key: ELEVENLABS_API_KEY
+        sync: false

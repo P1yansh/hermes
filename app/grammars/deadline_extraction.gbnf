@@ -1,0 +1,10 @@
+root ::= object
+object ::= "{" ws "\"category\"" ws ":" ws category ws "," ws "\"has_explicit_deadline\"" ws ":" ws boolean ws "," ws "\"confidence\"" ws ":" ws number ws "," ws "\"title\"" ws ":" ws string ws "," ws "\"course_or_organizer\"" ws ":" ws string ws "," ws "\"exact_deadline_iso\"" ws ":" ws (string | null) ws "," ws "\"deadline_verbatim\"" ws ":" ws (string | null) ws "," ws "\"needs_web_search\"" ws ":" ws boolean ws "," ws "\"search_query\"" ws ":" ws (string | null) ws "," ws "\"action_required\"" ws ":" ws string ws "," ws "\"estimated_hours\"" ws ":" ws number ws "}"
+category ::= "\"ACADEMIC_DEADLINE\"" | "\"OPPORTUNITY_DEADLINE\"" | "\"INFORMATIONAL_ALERT\"" | "\"SPAM_NOISE\""
+boolean ::= "true" | "false"
+null ::= "null"
+number ::= "-"? [0-9]+ ("." [0-9]+)?
+string ::= "\"" char* "\""
+char ::= [^"\\\n\r] | "\\" (["\\/bfnrt] | "u" hex hex hex hex)
+hex ::= [0-9a-fA-F]
+ws ::= [ \t]*

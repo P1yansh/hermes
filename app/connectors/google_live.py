@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from datetime import datetime, timezone
@@ -117,6 +118,28 @@ class GoogleLiveConnector(BaseConnector):
             logger.warning(f"Error building Google API services for {account.get('id')}: {e}")
             return None, None
 
+    @staticmethod
+    def _parse_due_at(coursework: dict) -> Optional[datetime]:
+        """Return the Classroom due timestamp, or None when it has no due date."""
+        due_date = coursework.get("dueDate") or {}
+        year = due_date.get("year")
+        month = due_date.get("month")
+        day = due_date.get("day")
+        if not all(isinstance(part, int) for part in (year, month, day)):
+            return None
+        due_time = coursework.get("dueTime") or {}
+        try:
+            return datetime(
+                year=year,
+                month=month,
+                day=day,
+                hour=due_time.get("hours", 23),
+                minute=due_time.get("minutes", 59),
+                tzinfo=timezone.utc,
+            )
+        except (TypeError, ValueError):
+            return None
+
     async def get_recent_emails(self, max_results: int = 15) -> list[EmailMessage]:
         all_emails: list[EmailMessage] = []
         any_success = False
@@ -126,18 +149,24 @@ class GoogleLiveConnector(BaseConnector):
                 continue
 
             acc_id = account.get("id", "primary")
-            gmail_service, _ = self._get_services(account)
+            gmail_service, _ = await asyncio.to_thread(self._get_services, account)
             if not gmail_service:
                 continue
 
             try:
-                results = gmail_service.users().messages().list(
-                    userId="me", maxResults=max_results, q="is:unread"
-                ).execute()
+                results = await asyncio.to_thread(
+                    lambda: gmail_service.users().messages().list(
+                        userId="me", maxResults=max_results, q="is:unread"
+                    ).execute()
+                )
                 messages = results.get("messages", [])
 
                 for m in messages:
-                    msg = gmail_service.users().messages().get(userId="me", id=m["id"]).execute()
+                    msg = await asyncio.to_thread(
+                        lambda: gmail_service.users().messages().get(
+                            userId="me", id=m["id"]
+                        ).execute()
+                    )
                     headers = {h["name"].lower(): h["value"] for h in msg.get("payload", {}).get("headers", [])}
                     sender = headers.get("from", "Unknown")
                     subject = headers.get("subject", "No Subject")
@@ -183,34 +212,29 @@ class GoogleLiveConnector(BaseConnector):
                 continue
 
             acc_id = account.get("id", "primary")
-            _, classroom_service = self._get_services(account)
+            _, classroom_service = await asyncio.to_thread(self._get_services, account)
             if not classroom_service:
                 continue
 
             try:
-                courses_res = classroom_service.courses().list(pageSize=10).execute()
+                courses_res = await asyncio.to_thread(
+                    lambda: classroom_service.courses().list(pageSize=10).execute()
+                )
                 courses_raw = courses_res.get("courses", [])
 
                 for c in courses_raw:
                     course_id = c["id"]
                     course_name = c["name"]
 
-                    cw_res = classroom_service.courses().courseWork().list(courseId=course_id).execute()
+                    cw_res = await asyncio.to_thread(
+                        lambda cid=course_id: classroom_service.courses()
+                        .courseWork()
+                        .list(courseId=cid)
+                        .execute()
+                    )
                     assignments: list[ClassroomAssignment] = []
                     for cw in cw_res.get("courseWork", []):
-                        due_date = cw.get("dueDate", {})
-                        due_time = cw.get("dueTime", {})
-                        if due_date:
-                            due_at = datetime(
-                                year=due_date.get("year", 2026),
-                                month=due_date.get("month", 1),
-                                day=due_date.get("day", 1),
-                                hour=due_time.get("hours", 23),
-                                minute=due_time.get("minutes", 59),
-                                tzinfo=timezone.utc
-                            )
-                        else:
-                            due_at = datetime.now(timezone.utc)
+                        due_at = self._parse_due_at(cw)
 
                         assignments.append(
                             ClassroomAssignment(

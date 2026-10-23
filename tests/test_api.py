@@ -1,6 +1,8 @@
 import pytest
 from httpx import ASGITransport, AsyncClient
+
 from app.main import app
+from app.services import elevenlabs
 
 @pytest.mark.asyncio
 async def test_root_endpoint():
@@ -70,9 +72,44 @@ async def test_briefing_api():
         assert "headline" in data
 
 @pytest.mark.asyncio
-async def test_briefing_audio_api():
+async def test_briefing_audio_cache_hit():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        briefing_res = await client.get("/api/briefing")
+        assert briefing_res.status_code == 200
+        script = briefing_res.json()["script"]
+        expected_hash = elevenlabs.elevenlabs_service.get_content_hash(script)
+        assert briefing_res.json()["audio_hash"] == expected_hash
+
+        cache_path = elevenlabs.AUDIO_CACHE_DIR / f"briefing_{expected_hash}.mp3"
+        cache_path.write_bytes(b"ID3" + b"\x00" * 4096)
+
         res = await client.get("/api/briefing/audio")
         assert res.status_code == 200
         assert res.headers["content-type"] == "audio/mpeg"
         assert len(res.content) > 0
+
+
+@pytest.mark.asyncio
+async def test_briefing_audio_unavailable_returns_503():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        await client.get("/api/briefing")
+        res = await client.get("/api/briefing/audio")
+        assert res.status_code == 503
+        assert "browser speech" in res.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_telemetry_endpoint(monkeypatch):
+    async def fake_telemetry(force: bool = False):
+        return {
+            "status": "online",
+            "model": "gemma-3-4b-it",
+            "tokens_per_second": 48.2,
+            "model_size_gb": 2.48,
+        }
+
+    monkeypatch.setattr("app.routers.telemetry.get_gemma_telemetry", fake_telemetry)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        res = await client.get("/api/telemetry/gemma")
+        assert res.status_code == 200
+        assert res.json()["tokens_per_second"] == 48.2

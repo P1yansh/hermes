@@ -52,8 +52,15 @@ class MockConnector(BaseConnector):
             course_name = c["course_name"]
             assignments: list[ClassroomAssignment] = []
             for a in c.get("assignments", []):
-                due_hours = a.get("due_hours_from_now", 24)
-                due_at = now + timedelta(hours=due_hours)
+                # A missing due date is a watchlist item, not a reason to
+                # invent a deadline. Only relative fixtures that opt in get one.
+                due_hours = a.get("due_hours_from_now")
+                due_at = None
+                if due_hours is not None:
+                    try:
+                        due_at = now + timedelta(hours=float(due_hours))
+                    except (TypeError, ValueError):
+                        due_at = None
                 assignments.append(
                     ClassroomAssignment(
                         id=a["id"],
@@ -87,8 +94,15 @@ class MockConnector(BaseConnector):
         now = datetime.now(timezone.utc)
         opportunities: list[OpportunityItem] = []
         for o in raw_data:
-            deadline_hours = o.get("deadline_hours_from_now", 72)
-            deadline = now + timedelta(hours=deadline_hours)
+            # A missing relative cutoff means the fixture is undated and must
+            # land on the watchlist. Do not default it to 72 hours.
+            deadline_hours = o.get("deadline_hours_from_now")
+            deadline = None
+            if deadline_hours is not None:
+                try:
+                    deadline = now + timedelta(hours=float(deadline_hours))
+                except (TypeError, ValueError):
+                    deadline = None
             opportunities.append(
                 OpportunityItem(
                     id=o["id"],
@@ -100,7 +114,8 @@ class MockConnector(BaseConnector):
                     tags=o.get("tags", []),
                     description=o["description"],
                     url=o["url"],
-                    relevance_score=o.get("relevance_score", 5)
+                    relevance_score=o.get("relevance_score", 5),
+                    has_explicit_deadline=deadline is not None
                 )
             )
         return opportunities

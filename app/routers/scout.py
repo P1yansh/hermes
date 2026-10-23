@@ -9,13 +9,14 @@ router = APIRouter(prefix="/api/scout", tags=["Opportunity Scout"])
 @router.get("", response_model=ScoutReport)
 async def get_opportunities():
     """
-    Returns active hackathons and internships directly from the SQLite store (< 5ms).
+    Returns active hackathons and internships directly from the SQLite store.
     """
     opps = db.get_all_opportunities()
     if not opps and not db.get_all_tasks():
         await sync_service.sync_all()
         opps = db.get_all_opportunities()
-    return ScoutReport(total_found=len(opps), matches=opps)
+    eligible = [o for o in opps if o.eligible]
+    return ScoutReport(total_found=len(eligible), matches=eligible)
 
 @router.post("", response_model=ScoutReport)
 async def post_custom_scout(profile: UserProfile):

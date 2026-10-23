@@ -1,6 +1,7 @@
 import pytest
 from datetime import datetime, timezone, timedelta
-from app.db import Database
+
+from app.db import Database, slugify
 from app.models.academic import ExtractedTask
 from app.models.opportunity import OpportunityItem
 
@@ -15,6 +16,72 @@ def test_db_init_and_seen_items(test_db):
     assert not test_db.is_item_seen("msg_123")
     test_db.mark_item_seen("msg_123", "email")
     assert test_db.is_item_seen("msg_123")
+
+
+def test_sqlite_uses_wal_mode(test_db):
+    with test_db.connection() as conn:
+        mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
+    assert mode.lower() == "wal"
+
+
+def test_slugify_keeps_round_qualifier():
+    assert slugify("Hackathon (Round 1)") != slugify("Hackathon (Round 2)")
+    assert slugify("Hackathon (Round 1)") == "hackathon-round-1"
+
+
+def test_negative_deadline_cache_expires(test_db):
+    test_db.save_cached_deadline("expired-event", "expired event deadline", None)
+    old = (datetime.now(timezone.utc) - timedelta(days=10)).isoformat()
+    with test_db.connection() as conn:
+        conn.execute(
+            "UPDATE deadline_search_cache SET searched_at = ? WHERE event_key = ?",
+            (old, "expired-event"),
+        )
+
+    is_cached, value = test_db.get_cached_deadline("expired-event")
+    assert is_cached is False
+    assert value is None
+    with test_db.connection() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM deadline_search_cache WHERE event_key = ?", ("expired-event",)
+        ).fetchone()
+    assert row is None
+
+
+def test_ingestion_batch_writes_all_three_tables(test_db):
+    task = ExtractedTask(
+        source_type="email",
+        source_id="msg_batch",
+        course_or_sender="CS401",
+        title="Batch Task",
+        deadline=datetime.now(timezone.utc) + timedelta(hours=4),
+        action_required="Submit",
+        has_explicit_deadline=True,
+    )
+    opp = OpportunityItem(
+        id="opp_batch",
+        title="Batch Hackathon",
+        type="hackathon",
+        organizer="DEV",
+        deadline=datetime.now(timezone.utc) + timedelta(days=2),
+        description="Build",
+        url="https://example.com",
+        has_explicit_deadline=True,
+    )
+    ledger = [{
+        "account_id": "college",
+        "message_id": "msg_batch",
+        "classification": "ACADEMIC_DEADLINE",
+        "thread_id": "th_batch",
+        "extracted_entity_id": "email_msg_batch",
+        "llm_tokens_spent": 120,
+    }]
+
+    test_db.save_ingestion_batch([task], [opp], ledger)
+
+    assert len(test_db.get_all_tasks()) == 1
+    assert len(test_db.get_all_opportunities()) == 1
+    assert test_db.is_email_in_ledger("college", "msg_batch")
 
 def test_db_tasks_crud(test_db):
     task = ExtractedTask(
@@ -83,10 +150,10 @@ def test_db_briefing_cache(test_db):
     assert b["audio_hash"] == "abc123hash"
 
 def test_email_ledger_crud(test_db):
-    assert not test_db.is_email_in_ledger("college_iiitl", "msg_001")
+    assert not test_db.is_email_in_ledger("college", "msg_001")
 
     test_db.record_email_ledger(
-        account_id="college_iiitl",
+        account_id="college",
         message_id="msg_001",
         classification="INFORMATIONAL_ALERT",
         thread_id="th_alert",
@@ -96,10 +163,10 @@ def test_email_ledger_crud(test_db):
         llm_tokens_spent=0
     )
 
-    assert test_db.is_email_in_ledger("college_iiitl", "msg_001")
-    assert not test_db.is_email_in_ledger("college_iiitl", "msg_999")
+    assert test_db.is_email_in_ledger("college", "msg_001")
+    assert not test_db.is_email_in_ledger("college", "msg_999")
 
-    entry = test_db.get_ledger_entry("college_iiitl", "msg_001")
+    entry = test_db.get_ledger_entry("college", "msg_001")
     assert entry is not None
     assert entry["classification"] == "INFORMATIONAL_ALERT"
     assert entry["llm_tokens_spent"] == 0

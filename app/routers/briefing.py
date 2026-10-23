@@ -21,12 +21,15 @@ async def get_daily_briefing():
     if not cached:
         raise HTTPException(status_code=500, detail="Failed to load daily briefing")
 
+    audio_hash = elevenlabs_service.get_content_hash(cached["script"])
+    cached_audio = elevenlabs_service.get_cached_path(cached["script"])
     return DailyBriefing(
         timestamp=datetime.fromisoformat(cached["created_at"]),
         headline=cached["headline"],
         script=cached["script"],
-        audio_available=True,
+        audio_available=bool(cached_audio or elevenlabs_service.api_key),
         audio_url="/api/briefing/audio",
+        audio_hash=audio_hash,
         items_covered=cached.get("items_covered", 0)
     )
 
@@ -49,7 +52,10 @@ async def get_briefing_audio():
 
     audio_path = await elevenlabs_service.synthesize(briefing.script)
     if not audio_path or not audio_path.exists():
-        raise HTTPException(status_code=500, detail="Audio synthesis failed")
+        raise HTTPException(
+            status_code=503,
+            detail="ElevenLabs is unavailable. The dashboard falls back to browser speech synthesis.",
+        )
 
     return FileResponse(
         path=str(audio_path),

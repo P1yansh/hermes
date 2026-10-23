@@ -10,7 +10,7 @@ This document governs agent behavior, engineering standards, and workflow discip
 | :--- | :--- | :--- |
 | **`tdd-architect`** | Test-Driven Development & Verification | Enforce non-interactive test suites (`uv run pytest`). Every new connector, radar calculation, prompt pipeline, and API route must have 100% automated test coverage before committing. |
 | **`backend-architect`** | Clean Architecture & Async Safety | Design async FastAPI endpoints, Pydantic v2 schemas (`model_dump()`, no v1 `.dict()`), dependency injection, and clean strategy pattern separation (`MockConnector` vs `GoogleLiveConnector`). Zero blocking synchronous calls inside route handlers. |
-| **`llm-prompt-engineer`** | Open-Weight Gemma 2 Optimization | Optimize constrained JSON extraction and few-shot system prompts for local `llama.cpp` inference on Gemma 2 (2B/9B). Always provide robust heuristic fallback logic for offline/CI resilience. |
+| **`llm-prompt-engineer`** | Open-Weight Gemma 3 Optimization | Optimize constrained JSON extraction and few-shot system prompts for local `llama.cpp` inference on Gemma 3 4B. Always provide robust heuristic fallback logic for offline/CI resilience. |
 | **`ui-designer`** | Minimalist Student Dashboard | Design glassmorphic, high-contrast dark mode interfaces with color-coded urgency radar bands (🔴 Panic, 🟡 Imminent, 🟢 Upcoming) and audio playback controls. |
 | **`devchallenge-strategist`** | Hacktoberfest DEV Submission | Continuously optimize for DEV Community judging criteria: Writing Quality (weighted most heavily), "Why Open Innovation Matters", and multi-partner category alignment (Gemma, Render, ElevenLabs, .tech domain). |
 

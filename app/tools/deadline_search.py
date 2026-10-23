@@ -99,18 +99,24 @@ class SearchDeadlineTool:
         Returns (deadline_datetime, has_explicit_deadline).
         Checks SQLite cache first. Caches unverified lookups to prevent quota burn.
         """
+        if not (event_name or "").strip():
+            return None, False
+
         event_key = slugify(event_name)
 
-        # 1. Check persistent cache
+        # 1. Check persistent cache. A stored deadline that has already passed
+        # is treated as stale, not as a valid answer for this event.
         is_cached, cached_iso = db.get_cached_deadline(event_key)
         if is_cached:
             if cached_iso:
                 try:
-                    dt = datetime.fromisoformat(cached_iso)
-                    return to_utc(dt), True
+                    dt = to_utc(datetime.fromisoformat(cached_iso))
+                    if dt > datetime.now(timezone.utc):
+                        return dt, True
                 except Exception:
-                    return None, False
-            return None, False
+                    pass
+            else:
+                return None, False
 
         # 2. Perform live search
         search_q = query or f"{event_name} 2026 deadline submission date"

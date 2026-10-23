@@ -49,4 +49,5 @@ class DailyBriefing(BaseModel):
     script: str
     audio_available: bool = False
     audio_url: Optional[str] = None
+    audio_hash: Optional[str] = None
     items_covered: int = 0

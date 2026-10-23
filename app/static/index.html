@@ -100,7 +100,7 @@
           <div class="flex items-center gap-1.5">
             <span class="text-zinc-500">MODEL:</span>
             <span id="telemetry-model" class="text-zinc-200 font-medium">gemma-3-4b-it-Q4_K_M</span>
-            <span class="text-[10px] px-1 py-0.2 bg-emerald-950/70 border border-emerald-800/60 text-emerald-400">3.1GB VRAM</span>
+            <span id="telemetry-vram-badge" class="text-[10px] px-1 py-0.2 bg-emerald-950/70 border border-emerald-800/60 text-emerald-400">PROBING</span>
           </div>
           <span class="text-obsidian-600">/</span>
           <div class="flex items-center gap-1.5">
@@ -139,7 +139,7 @@
             <path stroke-linecap="square" stroke-linejoin="miter" stroke-width="2.2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
           <span>SYNC PIPELINE</span>
-          <span id="sync-latency" class="hidden sm:inline text-[10px] font-normal text-zinc-600 tabular-nums">14ms</span>
+          <span id="sync-latency" class="hidden sm:inline text-[10px] font-normal text-zinc-600 tabular-nums">--ms</span>
         </button>
 
         <!-- Copy / Save HTML for app/static/index.html -->
@@ -208,23 +208,24 @@
         </div>
         <div class="mt-1 flex items-baseline gap-2">
           <span id="metric-scout" class="text-2xl font-bold text-zinc-100 tabular-nums">0</span>
-          <span id="metric-top-score" class="text-[11px] text-zinc-400">PEAK: 96%</span>
+          <span id="metric-top-score" class="text-[11px] text-zinc-400">PEAK: --</span>
         </div>
       </div>
 
       <div class="p-3 sm:px-5 flex flex-col justify-between">
         <div class="flex items-center justify-between text-[11px] text-zinc-400">
-          <span>VRAM BUDGET (RTX 4050)</span>
-          <span class="text-[10px] text-emerald-400">GBNF ENFORCED</span>
+          <span>LOCAL INFERENCE</span>
+          <span id="telemetry-gbnf" class="text-[10px] text-emerald-400">GBNF ENFORCED</span>
         </div>
         <div class="mt-1.5">
           <div class="flex justify-between text-[11px] mb-1 tabular-nums">
-            <span class="text-zinc-200 font-semibold">3.12 / 5.00 GB</span>
-            <span class="text-zinc-400">62%</span>
+            <span id="telemetry-vram" class="text-zinc-200 font-semibold">PROBING LLAMA-SERVER</span>
+            <span id="telemetry-vram-pct" class="text-zinc-400">--</span>
           </div>
           <div class="w-full h-1.5 bg-obsidian-800 overflow-hidden">
-            <div class="h-full bg-emerald-500" style="width: 62.4%"></div>
+            <div id="telemetry-vram-bar" class="h-full bg-emerald-500" style="width: 0%"></div>
           </div>
+          <div id="telemetry-tps" class="text-[10px] text-zinc-500 mt-1">tok/s: --</div>
         </div>
       </div>
 
@@ -473,13 +474,13 @@
         <div class="grid grid-cols-2 gap-2 text-[11px]">
           <div class="bg-obsidian-950 p-2.5 border border-obsidian-800">
             <div class="text-zinc-500">PRIMARY MODEL</div>
-            <div class="text-zinc-200 font-semibold mt-0.5">gemma-3-4b-it (Q4_K_M)</div>
-            <div class="text-zinc-400 text-[10px] mt-0.5">Weights: 2.49 GB | KV: 0.6 GB</div>
+            <div id="telemetry-primary-model" class="text-zinc-200 font-semibold mt-0.5">gemma-3-4b-it (Q4_K_M)</div>
+            <div id="telemetry-primary-weights" class="text-zinc-400 text-[10px] mt-0.5">Weights: -- | Context: --</div>
           </div>
           <div class="bg-obsidian-950 p-2.5 border border-obsidian-800">
-            <div class="text-zinc-500">ULTRA-LIGHT ALTERNATIVE</div>
-            <div class="text-zinc-200 font-semibold mt-0.5">gemma-2-2b-it (Q8_0)</div>
-            <div class="text-zinc-400 text-[10px] mt-0.5">Weights: 2.78 GB | ~95 tok/s</div>
+            <div class="text-zinc-500">RUNTIME</div>
+            <div id="telemetry-runtime" class="text-zinc-200 font-semibold mt-0.5">llama-server</div>
+            <div id="telemetry-runtime-detail" class="text-zinc-400 text-[10px] mt-0.5">Status: probing</div>
           </div>
         </div>
       </section>
@@ -552,6 +553,7 @@
       radarItems: [],
       watchlistItems: [],
       briefingText: '',
+      audioHash: '',
       isPlayingAudio: false,
       playbackRate: 1.0,
       selectedItem: null,
@@ -779,7 +781,7 @@
       const topPanic = panicItems[0];
       const secondPanic = panicItems[1];
 
-      let script = `Good morning. Hermes Autonomous Triage online, running local Gemma 3 4B in 3.1 gigabytes of VRAM.\n\n`;
+      let script = `Good morning. Hermes Autonomous Triage online with the local Gemma 3 4B inference path and a deterministic fallback.\n\n`;
       if (panicItems.length > 0) {
         script += `CRITICAL ALERT: You have ${panicItems.length} cutoffs in the red Panic band under 6 hours ("jaldi kar alsi, warna gaya"). `;
         if (topPanic) {
@@ -799,8 +801,70 @@
     }
 
     // ============================================================================
-    // API INTEGRATION WITH SEAMLESS FALLBACK
+    // API INTEGRATION WITH EXPLICIT FALLBACK
     // ============================================================================
+    function applyTelemetry(t) {
+      if (!t) return;
+      const online = t.status === 'online';
+      const modelEl = document.getElementById('telemetry-model');
+      if (modelEl && t.model) {
+        modelEl.textContent = `${t.model}${t.quantization ? ` (${t.quantization})` : ''}`;
+      }
+
+      const badge = document.getElementById('telemetry-vram-badge');
+      if (badge) {
+        badge.textContent = online ? `${t.tokens_per_second || '--'} tok/s` : 'LLM OFFLINE';
+        badge.className = online
+          ? 'text-[10px] px-1 py-0.2 bg-emerald-950/70 border border-emerald-800/60 text-emerald-400'
+          : 'text-[10px] px-1 py-0.2 bg-amber-950/70 border border-amber-800/60 text-amber-400';
+      }
+
+      const vramEl = document.getElementById('telemetry-vram');
+      const pctEl = document.getElementById('telemetry-vram-pct');
+      const barEl = document.getElementById('telemetry-vram-bar');
+      if (t.vram_used_gb != null && t.vram_total_gb != null) {
+        const pct = Math.min(100, Math.round((t.vram_used_gb / t.vram_total_gb) * 100));
+        if (vramEl) vramEl.textContent = `${t.vram_used_gb.toFixed(2)} / ${t.vram_total_gb.toFixed(2)} GB`;
+        if (pctEl) pctEl.textContent = `${pct}%`;
+        if (barEl) barEl.style.width = `${pct}%`;
+      } else if (t.model_size_gb) {
+        if (vramEl) vramEl.textContent = `${t.model_size_gb.toFixed(2)} GB WEIGHTS`;
+        if (pctEl) pctEl.textContent = online ? 'LOCAL' : 'OFFLINE';
+        if (barEl) barEl.style.width = '0%';
+      } else {
+        if (vramEl) vramEl.textContent = online ? 'MODEL LOADED' : 'LLM OFFLINE';
+        if (pctEl) pctEl.textContent = '--';
+        if (barEl) barEl.style.width = '0%';
+      }
+
+      const tpsEl = document.getElementById('telemetry-tps');
+      if (tpsEl) {
+        tpsEl.textContent = online
+          ? `tok/s: ${t.tokens_per_second || '--'} | prompt: ${t.prompt_tokens_per_second || '--'} | ${t.latency_ms || '--'}ms`
+          : 'tok/s: -- (deterministic fallback active)';
+      }
+
+      const primaryModel = document.getElementById('telemetry-primary-model');
+      if (primaryModel && t.model) primaryModel.textContent = `${t.model}${t.quantization ? ` (${t.quantization})` : ''}`;
+      const weights = document.getElementById('telemetry-primary-weights');
+      if (weights) {
+        const size = t.model_size_gb ? `${t.model_size_gb} GB` : '--';
+        const ctx = t.context_size ? `${t.context_size} tokens` : '--';
+        weights.textContent = `Weights: ${size} | Context: ${ctx}`;
+      }
+
+      const runtime = document.getElementById('telemetry-runtime');
+      if (runtime) runtime.textContent = online ? 'llama-server online' : 'heuristic fallback';
+      const runtimeDetail = document.getElementById('telemetry-runtime-detail');
+      if (runtimeDetail) {
+        runtimeDetail.textContent = online
+          ? `Probe: ${t.latency_ms} ms | ${t.completion_tokens || 0} completion tokens`
+          : 'No local server on this host';
+      }
+      const gbnf = document.getElementById('telemetry-gbnf');
+      if (gbnf) gbnf.textContent = online ? 'GBNF ENFORCED' : 'HEURISTIC FALLBACK';
+    }
+
     async function loadDashboardData() {
       const t0 = performance.now();
       const sim = buildSimulationFixtures();
@@ -810,15 +874,17 @@
         state.opportunities = scoreOpportunitiesLocal(sim.rawOpps, state.skills);
         state.radarItems = computeRadarItems(state.academicTasks, state.opportunities);
         state.briefingText = generateFallbackBriefing(state.radarItems);
+        state.audioHash = '';
         document.getElementById('telemetry-source').textContent = 'SIMULATION FIXTURES';
         document.getElementById('telemetry-source').className = 'uppercase text-amber-400 font-medium';
+        applyTelemetry({ status: 'offline', model: 'gemma-3-4b-it' });
         renderAll();
         return;
       }
 
       try {
         // Attempt real FastAPI endpoints concurrently
-        const [statusRes, triageRes, scoutRes, briefingRes, radarRes] = await Promise.allSettled([
+        const [statusRes, triageRes, scoutRes, briefingRes, radarRes, telemetryRes] = await Promise.allSettled([
           fetch('/api/health').then(r => r.ok ? r.json() : fetch('/').then(r2 => r2.json())),
           fetch('/api/triage').then(r => r.ok ? r.json() : Promise.reject()),
           fetch('/api/scout', {
@@ -827,17 +893,20 @@
             body: JSON.stringify({ skills: state.skills })
           }).then(r => r.ok ? r.json() : fetch('/api/scout').then(r2 => r2.json())),
           fetch('/api/briefing').then(r => r.ok ? r.json() : Promise.reject()),
-          fetch('/api/radar').then(r => r.ok ? r.json() : Promise.reject())
+          fetch('/api/radar').then(r => r.ok ? r.json() : Promise.reject()),
+          fetch('/api/telemetry/gemma').then(r => r.ok ? r.json() : Promise.reject())
         ]);
 
         let usedLive = false;
 
         if (statusRes.status === 'fulfilled' && statusRes.value) {
-          const s = statusRes.value;
-          if (s.model || s.active_model) {
-            document.getElementById('telemetry-model').textContent = s.model || s.active_model;
-          }
           usedLive = true;
+        }
+
+        if (telemetryRes.status === 'fulfilled' && telemetryRes.value) {
+          applyTelemetry(telemetryRes.value);
+        } else {
+          applyTelemetry({ status: 'offline', model: 'gemma-3-4b-it' });
         }
 
         if (triageRes.status === 'fulfilled' && triageRes.value) {
@@ -882,8 +951,10 @@
 
         if (briefingRes.status === 'fulfilled' && briefingRes.value) {
           state.briefingText = briefingRes.value.script || briefingRes.value.briefing || briefingRes.value.text || generateFallbackBriefing(state.radarItems);
+          state.audioHash = briefingRes.value.audio_hash || '';
         } else {
           state.briefingText = generateFallbackBriefing(state.radarItems);
+          state.audioHash = '';
         }
 
         const latency = Math.round(performance.now() - t0);
@@ -916,14 +987,16 @@
       const t0 = performance.now();
 
       try {
-        const res = await fetch('/api/sync', { method: 'POST' });
+        // The backend always polls connectors and checks the ledger. No force
+        // flag, so this is an incremental pass rather than a full re-extract.
+        const res = await fetch('/api/sync?force=false', { method: 'POST' });
         if (res.ok) {
-          showToast('POST /api/sync complete — SQLite WAL updated');
+          showToast('Incremental sync complete — ledger checked, WAL updated');
         } else {
-          showToast('Synced local triage & radar state');
+          showToast('Sync failed; keeping the last cached radar');
         }
       } catch (_) {
-        showToast('Simulation pipeline synchronized (<5ms)');
+        showToast('Simulation pipeline synchronized');
       } finally {
         await loadDashboardData();
         const elapsed = Math.round(performance.now() - t0);
@@ -1169,7 +1242,10 @@
       document.getElementById('scout-count-badge').textContent = `${state.opportunities.length} RANKED`;
 
       if (state.opportunities.length > 0) {
-        document.getElementById('metric-top-score').textContent = `PEAK: ${state.opportunities[0].match_score}%`;
+        const peak = state.opportunities[0].match_score;
+        document.getElementById('metric-top-score').textContent = peak != null ? `PEAK: ${peak}%` : 'PEAK: --';
+      } else {
+        document.getElementById('metric-top-score').textContent = 'PEAK: --';
       }
 
       container.innerHTML = state.opportunities.map(opp => {
@@ -1201,14 +1277,12 @@
     function renderBriefingTranscript() {
       const box = document.getElementById('briefing-script-box');
       box.textContent = state.briefingText;
-      // Compute simple deterministic hex hash for UI badge
-      let hash = 2166136261;
-      for (let i = 0; i < state.briefingText.length; i++) {
-        hash ^= state.briefingText.charCodeAt(i);
-        hash = Math.imul(hash, 16777619);
-      }
-      const hex = (hash >>> 0).toString(16).padStart(8, '0');
-      document.getElementById('audio-cache-hash').textContent = `SHA: ${hex.slice(0, 4)}..${hex.slice(4)}`;
+      // The backend returns the real SHA-256 cache key. Do not fake it with a
+      // client-side FNV hash: the badge must match the file on disk.
+      const hash = state.audioHash || '';
+      document.getElementById('audio-cache-hash').textContent = hash
+        ? `SHA: ${hash.slice(0, 4)}..${hash.slice(-4)}`
+        : 'SHA: --';
     }
 
     // ============================================================================
@@ -1357,6 +1431,7 @@
 
     function refreshBriefing() {
       state.briefingText = generateFallbackBriefing(state.radarItems);
+      state.audioHash = '';
       renderBriefingTranscript();
       showToast('Morning briefing script regenerated from active Radar');
     }

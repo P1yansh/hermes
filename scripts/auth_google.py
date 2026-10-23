@@ -4,8 +4,13 @@ CLI Multi-Account Google OAuth Authenticator for Hermes.
 Iterates through config/accounts.json and authenticates each email inbox individually.
 """
 import sys
+import os
 import json
 from pathlib import Path
+
+# Prevent ScopeChanged error when Google reorders scopes or adds openid/email
+os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
+os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
 # Add project root to sys.path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -93,9 +98,11 @@ def main():
             creds = flow.run_local_server(port=0)
             with open(token_path, "w", encoding="utf-8") as tf:
                 tf.write(creds.to_json())
-            print(f"[SUCCESS] Token saved successfully -> {token_rel}\n")
+            print(f"[SUCCESS] Token saved successfully -> {token_path.resolve()}\n", flush=True)
         except Exception as e:
-            print(f"[FAILED] Could not authenticate '{acc_id}': {e}\n")
+            import traceback
+            traceback.print_exc()
+            print(f"[FAILED] Could not authenticate '{acc_id}': {e}\n", flush=True)
 
     print("=" * 65)
     print("  All accounts processed. You can now run Hermes with DATA_SOURCE=live")

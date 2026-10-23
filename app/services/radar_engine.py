@@ -59,8 +59,9 @@ class RadarEngine:
             delta = deadline - now
             hours_remaining = round(delta.total_seconds() / 3600.0, 1)
 
-            # Skip already passed deadlines if older than 2 hours
-            if hours_remaining < -2.0:
+            # Passed items are not active. Keeping a -1h item used to inflate
+            # total_active without adding it to any of the three bands.
+            if hours_remaining < 0:
                 continue
 
             urgency, sloth_msg = cls.classify_urgency(hours_remaining)

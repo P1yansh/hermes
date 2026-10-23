@@ -96,27 +96,64 @@ class AcademicTriageAgent:
         """Backwards-compatible helper: True if classified as spam or informational."""
         return cls.classify_email_intent(sender, subject, body) in ("spam", "informational")
 
+    @staticmethod
+    def resolve_relative_deadline(deadline_text: str, email_dt: datetime) -> Optional[datetime]:
+        """Resolve 'tonight' / 'tomorrow' against the email's IST timestamp.
+
+        The old code called .replace(hour=23, minute=59) on a UTC datetime. At
+        20:00 IST that produced 05:29 IST the next day. Anchor in the user's
+        timezone, then convert back to UTC for storage.
+        """
+        text = (deadline_text or "").lower()
+        try:
+            user_tz = ZoneInfo(settings.USER_TIMEZONE)
+        except Exception:
+            user_tz = timezone.utc
+
+        email_ist = to_utc(email_dt).astimezone(user_tz)
+
+        # Pull an explicit clock time out of the phrase when one exists:
+        # "tomorrow at 5 PM" should stay 17:00 IST, not the 18:00 default.
+        hour, minute = (23, 59) if "tonight" in text else (18, 0)
+        if "midnight" in text:
+            hour, minute = 0, 0
+        elif "noon" in text:
+            hour, minute = 12, 0
+        else:
+            time_match = re.search(r"(\d{1,2})(?::(\d{2}))?\s*(am|pm)", text)
+            if time_match:
+                hour = int(time_match.group(1)) % 12
+                minute = int(time_match.group(2) or 0)
+                if time_match.group(3) == "pm":
+                    hour += 12
+
+        if "tonight" in text:
+            return to_utc(email_ist.replace(hour=hour, minute=minute, second=0, microsecond=0))
+        if "tomorrow" in text:
+            tomorrow = (email_ist + timedelta(days=1)).replace(
+                hour=hour, minute=minute, second=0, microsecond=0
+            )
+            return to_utc(tomorrow)
+        return None
+
     async def triage(self, force_refresh: bool = False) -> list[ExtractedTask]:
         """
         Gathers raw inboxes and classroom streams, filtering spam/informational alerts,
         routing opportunity alerts directly to Scout, and extracting
         structured deadlines via Gemma with relative date anchoring.
-        """
-        if not force_refresh:
-            cached_tasks = db.get_all_tasks()
-            if cached_tasks:
-                return cached_tasks
 
+        The connector is polled on every call. The email ledger, not a
+        process-level cache, decides what has already been evaluated.
+        """
         new_tasks: list[ExtractedTask] = []
         new_opps: list[OpportunityItem] = []
+        ledger_entries: list[dict] = []
 
-        # 1. Process Google Classroom coursework
+        # 1. Process Google Classroom coursework. This is a cheap API read and
+        # re-running it lets an instructor's due-date change reach the radar.
         courses = await self.connector.get_classroom_courses()
         for course in courses:
             for a in course.assignments:
-                if not force_refresh and db.is_item_seen(a.id):
-                    continue
-
                 slug = slugify(a.title)
                 existing = db.find_task_by_thread_or_slug(None, slug)
                 deadline_dt = to_utc(a.due_at) if a.due_at else None
@@ -132,7 +169,10 @@ class AcademicTriageAgent:
                         title=a.title,
                         deadline=deadline_dt,
                         action_required=f"Submit '{a.title}' on Google Classroom",
-                        is_urgent=bool(deadline_dt and (deadline_dt - datetime.now(timezone.utc)).total_seconds() < 21600),
+                        is_urgent=bool(
+                            deadline_dt
+                            and 0 <= (deadline_dt - datetime.now(timezone.utc)).total_seconds() < 21600
+                        ),
                         submission_url=a.submission_url,
                         estimated_hours=2.5,
                         confidence=1.0,
@@ -162,36 +202,36 @@ class AcademicTriageAgent:
                 user_tz = ZoneInfo(settings.USER_TIMEZONE)
             except Exception:
                 user_tz = timezone.utc
-            anchor_ist = email_dt.astimezone(user_tz).strftime("%Y-%m-%d %H:%M:%S IST")
+            anchor_ist = email_dt.astimezone(user_tz).strftime("%Y-%m-%d %H:%M:%S %Z")
 
             intent = self.classify_email_intent(msg.sender, msg.subject, msg.body)
 
             if intent == "informational":
                 # Record in ledger to never re-evaluate; drop completely from Radar & Watchlist
-                db.record_email_ledger(
-                    account_id=account_id,
-                    message_id=msg.id,
-                    classification="INFORMATIONAL_ALERT",
-                    thread_id=msg.thread_id,
-                    internal_date=msg.internal_date,
-                    subject=msg.subject,
-                    sender=msg.sender,
-                    llm_tokens_spent=0
-                )
+                ledger_entries.append({
+                    "account_id": account_id,
+                    "message_id": msg.id,
+                    "classification": "INFORMATIONAL_ALERT",
+                    "thread_id": msg.thread_id,
+                    "internal_date": msg.internal_date,
+                    "subject": msg.subject,
+                    "sender": msg.sender,
+                    "llm_tokens_spent": 0,
+                })
                 continue
 
             elif intent == "spam":
                 # Record in ledger; drop completely
-                db.record_email_ledger(
-                    account_id=account_id,
-                    message_id=msg.id,
-                    classification="SPAM_NOISE",
-                    thread_id=msg.thread_id,
-                    internal_date=msg.internal_date,
-                    subject=msg.subject,
-                    sender=msg.sender,
-                    llm_tokens_spent=0
-                )
+                ledger_entries.append({
+                    "account_id": account_id,
+                    "message_id": msg.id,
+                    "classification": "SPAM_NOISE",
+                    "thread_id": msg.thread_id,
+                    "internal_date": msg.internal_date,
+                    "subject": msg.subject,
+                    "sender": msg.sender,
+                    "llm_tokens_spent": 0,
+                })
                 continue
 
             elif intent == "opportunity":
@@ -204,6 +244,9 @@ class AcademicTriageAgent:
                     event_name=msg.subject,
                     anchor_ist=anchor_ist
                 )
+                if existing_opp and existing_opp.deadline and not resolved_deadline:
+                    resolved_deadline = existing_opp.deadline
+                    has_deadline = existing_opp.has_explicit_deadline
 
                 opp_type = "hackathon" if "hackathon" in f"{msg.subject} {msg.body}".lower() else "internship"
                 organizer = msg.sender.split("<")[0].strip().replace('"', '') or "Opportunity Alert"
@@ -230,17 +273,17 @@ class AcademicTriageAgent:
                     )
                 )
 
-                db.record_email_ledger(
-                    account_id=account_id,
-                    message_id=msg.id,
-                    classification="OPPORTUNITY_DEADLINE",
-                    thread_id=msg.thread_id,
-                    internal_date=msg.internal_date,
-                    subject=msg.subject,
-                    sender=msg.sender,
-                    extracted_entity_id=opp_id,
-                    llm_tokens_spent=0
-                )
+                ledger_entries.append({
+                    "account_id": account_id,
+                    "message_id": msg.id,
+                    "classification": "OPPORTUNITY_DEADLINE",
+                    "thread_id": msg.thread_id,
+                    "internal_date": msg.internal_date,
+                    "subject": msg.subject,
+                    "sender": msg.sender,
+                    "extracted_entity_id": opp_id,
+                    "llm_tokens_spent": 0,
+                })
                 continue
 
             # Stage-2: Academic Gemma Structured Extraction
@@ -254,24 +297,28 @@ class AcademicTriageAgent:
             category = extraction.get("category", "ACADEMIC_DEADLINE")
 
             if category in ("INFORMATIONAL_ALERT", "SPAM_NOISE"):
-                db.record_email_ledger(
-                    account_id=account_id,
-                    message_id=msg.id,
-                    classification=category,
-                    thread_id=msg.thread_id,
-                    internal_date=msg.internal_date,
-                    subject=msg.subject,
-                    sender=msg.sender,
-                    llm_tokens_spent=50
-                )
+                ledger_entries.append({
+                    "account_id": account_id,
+                    "message_id": msg.id,
+                    "classification": category,
+                    "thread_id": msg.thread_id,
+                    "internal_date": msg.internal_date,
+                    "subject": msg.subject,
+                    "sender": msg.sender,
+                    "llm_tokens_spent": 50,
+                })
                 continue
 
             if category == "OPPORTUNITY_DEADLINE":
                 slug = slugify(extraction.get("title") or msg.subject)
+                existing_opp = db.find_opportunity_by_thread_or_slug(msg.thread_id, slug)
                 resolved_deadline, has_deadline = await deadline_search_tool.resolve_deadline(
                     event_name=extraction.get("title") or msg.subject,
                     anchor_ist=anchor_ist
                 )
+                if existing_opp and existing_opp.deadline and not resolved_deadline:
+                    resolved_deadline = existing_opp.deadline
+                    has_deadline = existing_opp.has_explicit_deadline
 
                 opp_id = f"email_{msg.id}"
                 new_opps.append(
@@ -292,40 +339,40 @@ class AcademicTriageAgent:
                         canonical_slug=slug
                     )
                 )
-                db.record_email_ledger(
-                    account_id=account_id,
-                    message_id=msg.id,
-                    classification="OPPORTUNITY_DEADLINE",
-                    thread_id=msg.thread_id,
-                    internal_date=msg.internal_date,
-                    subject=msg.subject,
-                    sender=msg.sender,
-                    extracted_entity_id=opp_id,
-                    llm_tokens_spent=100
-                )
+                ledger_entries.append({
+                    "account_id": account_id,
+                    "message_id": msg.id,
+                    "classification": "OPPORTUNITY_DEADLINE",
+                    "thread_id": msg.thread_id,
+                    "internal_date": msg.internal_date,
+                    "subject": msg.subject,
+                    "sender": msg.sender,
+                    "extracted_entity_id": opp_id,
+                    "llm_tokens_spent": 100,
+                })
                 continue
 
-            # Handle legitimate ACADEMIC_DEADLINE
+            # Handle legitimate ACADEMIC_DEADLINE. Relative phrases are anchored
+            # deterministically in IST because a 4B model often treats "11:59 PM"
+            # as UTC and silently shifts the deadline by 5.5 hours.
             slug = slugify(extraction.get("title") or msg.subject)
-            deadline: Optional[datetime] = None
-            has_explicit_deadline = False
+            deadline: Optional[datetime] = self.resolve_relative_deadline(
+                extraction.get("deadline_text") or "",
+                email_dt,
+            )
+            has_explicit_deadline = deadline is not None
 
             exact_iso = extraction.get("exact_deadline_iso")
-            if exact_iso:
+            if deadline is None and exact_iso:
                 try:
-                    deadline = to_utc(datetime.fromisoformat(exact_iso))
-                    has_explicit_deadline = True
+                    candidate = to_utc(datetime.fromisoformat(exact_iso))
+                    # Reject obvious hallucinations. A real email can reference
+                    # a recently missed cutoff, but not a deadline years away.
+                    if email_dt - timedelta(days=30) <= candidate <= email_dt + timedelta(days=365):
+                        deadline = candidate
+                        has_explicit_deadline = True
                 except Exception:
                     pass
-
-            if not deadline:
-                deadline_text = (extraction.get("deadline_text") or "").lower()
-                if "tonight" in deadline_text:
-                    deadline = email_dt.replace(hour=23, minute=59, second=0)
-                    has_explicit_deadline = True
-                elif "tomorrow" in deadline_text:
-                    deadline = (email_dt + timedelta(days=1)).replace(hour=18, minute=0, second=0)
-                    has_explicit_deadline = True
 
             # Notice: If no deadline was extracted, deadline remains None and has_explicit_deadline = False!
             # Never fabricate a fake deadline.
@@ -339,7 +386,10 @@ class AcademicTriageAgent:
                     title=extraction.get("title") or msg.subject,
                     deadline=deadline,
                     action_required=extraction.get("action_required") or "Review email instructions",
-                    is_urgent=bool(deadline and (deadline - datetime.now(timezone.utc)).total_seconds() < 21600),
+                    is_urgent=bool(
+                        deadline
+                        and 0 <= (deadline - datetime.now(timezone.utc)).total_seconds() < 21600
+                    ),
                     submission_url=None,
                     estimated_hours=float(extraction.get("estimated_hours") or 1.5),
                     confidence=float(extraction.get("confidence") or 0.9),
@@ -350,24 +400,22 @@ class AcademicTriageAgent:
                 )
             )
 
-            db.record_email_ledger(
-                account_id=account_id,
-                message_id=msg.id,
-                classification="ACADEMIC_DEADLINE",
-                thread_id=msg.thread_id,
-                internal_date=msg.internal_date,
-                subject=msg.subject,
-                sender=msg.sender,
-                extracted_entity_id=task_id,
-                llm_tokens_spent=120
-            )
+            ledger_entries.append({
+                "account_id": account_id,
+                "message_id": msg.id,
+                "classification": "ACADEMIC_DEADLINE",
+                "thread_id": msg.thread_id,
+                "internal_date": msg.internal_date,
+                "subject": msg.subject,
+                "sender": msg.sender,
+                "extracted_entity_id": task_id,
+                "llm_tokens_spent": 120,
+            })
 
-        # Save extracted tasks and mined opportunities to SQLite
-        if new_tasks:
-            db.save_tasks(new_tasks)
-
-        if new_opps:
-            db.save_opportunities(new_opps)
+        # One transaction: a ledger row must never claim an email was handled
+        # when the extracted task or opportunity was not persisted.
+        if new_tasks or new_opps or ledger_entries:
+            db.save_ingestion_batch(new_tasks, new_opps, ledger_entries)
 
         return db.get_all_tasks()
 

@@ -39,6 +39,8 @@ async def get_urgency_radar():
         })
 
     for o in opps:
+        if not o.eligible:
+            continue
         raw_items.append({
             "id": f"opp_{o.id}",
             "kind": "hackathon_deadline",

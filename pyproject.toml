@@ -1,12 +1,12 @@
 [project]
 name = "athena-hermes"
 version = "0.1.0"
-description = "Autonomous Academic Triage & Opportunity Radar for Athena, powered by Gemma 2 and ElevenLabs"
+description = "Autonomous Academic Triage & Opportunity Radar for Athena, powered by Gemma 3 and ElevenLabs"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [
-    { name = "P1yansh", email = "piyanshshukla7824@gmail.com" }
+    { name = "Hermes Contributors", email = "maintainers@example.com" }
 ]
 dependencies = [
     "fastapi>=0.115.0",
@@ -31,3 +31,4 @@ package = false
 [tool.pytest.ini_options]
 pythonpath = ["."]
 asyncio_mode = "auto"
+filterwarnings = ["error::ResourceWarning"]

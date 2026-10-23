@@ -27,7 +27,7 @@ class Settings(BaseModel):
     USER_STATE: str = os.getenv("USER_STATE", "uttar pradesh")
     USER_COUNTRY: str = os.getenv("USER_COUNTRY", "india")
 
-    # Athena Local Inference (llama-server running Gemma 3 / 2)
+    # Athena Local Inference (llama-server running Gemma 3 4B)
     LOCAL_LLM_URL: str = os.getenv("LOCAL_LLM_URL", "http://127.0.0.1:8080/v1")
     LOCAL_LLM_MODEL: str = os.getenv("LOCAL_LLM_MODEL", "gemma-3-4b-it")
     LOCAL_LLM_API_KEY: str = os.getenv("LOCAL_LLM_API_KEY", "sk-athena-local")

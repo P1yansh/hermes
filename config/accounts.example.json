@@ -1,0 +1,23 @@
+[
+  {
+    "id": "college",
+    "label": "College Inbox",
+    "token_file": "tokens/token_college.json",
+    "enable_gmail": true,
+    "enable_classroom": true
+  },
+  {
+    "id": "personal_dev",
+    "label": "Personal Dev Inbox",
+    "token_file": "tokens/token_personal_1.json",
+    "enable_gmail": true,
+    "enable_classroom": false
+  },
+  {
+    "id": "alerts",
+    "label": "Alerts Inbox",
+    "token_file": "tokens/token_personal_2.json",
+    "enable_gmail": true,
+    "enable_classroom": false
+  }
+]

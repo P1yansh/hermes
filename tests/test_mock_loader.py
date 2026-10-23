@@ -1,3 +1,5 @@
+import json
+
 import pytest
 from app.connectors.mock_loader import MockConnector
 
@@ -24,3 +26,51 @@ async def test_mock_loader_opportunities():
     opps = await connector.get_opportunities()
     assert len(opps) > 0
     assert any("Hacktoberfest" in o.title for o in opps)
+
+
+@pytest.mark.asyncio
+async def test_mock_loader_does_not_invent_missing_or_invalid_deadlines(tmp_path):
+    (tmp_path / "mock_classroom.json").write_text(json.dumps([{
+        "course_id": "course_x",
+        "course_name": "CS999: Open-Ended Project",
+        "assignments": [
+            {
+                "id": "cw_missing",
+                "title": "Final Project",
+                "description": "Schedule to be announced.",
+            },
+            {
+                "id": "cw_invalid",
+                "title": "Final Report",
+                "description": "The fixture has a malformed date.",
+                "due_hours_from_now": "soon",
+            },
+        ],
+    }]), encoding="utf-8")
+    (tmp_path / "mock_opportunities.json").write_text(json.dumps([
+        {
+            "id": "opp_missing",
+            "title": "Unscheduled Fellowship",
+            "type": "grant",
+            "organizer": "Example Foundation",
+            "description": "Applications open soon.",
+            "url": "https://example.com/fellowship",
+        },
+        {
+            "id": "opp_invalid",
+            "title": "Malformed Fellowship",
+            "type": "grant",
+            "organizer": "Example Foundation",
+            "description": "The fixture has a malformed date.",
+            "url": "https://example.com/fellowship",
+            "deadline_hours_from_now": "soon",
+        },
+    ]), encoding="utf-8")
+
+    connector = MockConnector(data_dir=tmp_path)
+    courses = await connector.get_classroom_courses()
+    opps = await connector.get_opportunities()
+
+    assert all(a.due_at is None for a in courses[0].assignments)
+    assert all(o.deadline is None for o in opps)
+    assert all(o.has_explicit_deadline is False for o in opps)

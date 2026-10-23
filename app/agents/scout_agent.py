@@ -1,6 +1,5 @@
 import logging
 from datetime import datetime, timezone
-from typing import Optional
 from app.config import settings, to_utc
 from app.connectors.base import BaseConnector
 from app.connectors.mock_loader import MockConnector
@@ -27,14 +26,6 @@ TARGET_COMPANIES = {
     "google": 35, "amazon": 30, "microsoft": 30, "meta": 35, "apple": 30,
 }
 
-USER_LOCATION = {
-    "city": settings.USER_CITY.lower(),
-    "state": settings.USER_STATE.lower(),
-    "country": settings.USER_COUNTRY.lower(),
-    "university": "iiit lucknow",
-    "graduation_year": 2029,
-}
-
 def is_geo_eligible(opp: OpportunityItem) -> tuple[bool, str]:
     """
     Hard Geo-Fence Rule:
@@ -52,12 +43,13 @@ def is_geo_eligible(opp: OpportunityItem) -> tuple[bool, str]:
         return False, f"Restricted to {opp.country}"
 
     # 2. Mode & City Check for Hackathons and Workshops
+    local_city = settings.USER_CITY.strip().lower()
     if opp.type in ("hackathon", "workshop", "academic_program"):
         if mode == "online":
             return True, "Online (India/Global Eligible)"
-        if "lucknow" in city or "iiit lucknow" in city or "iiitl" in city:
-            return True, "Offline — Local (Lucknow)"
-        return False, f"Offline outside Lucknow ({opp.city or 'Unspecified City'})"
+        if local_city and local_city in city:
+            return True, f"Offline — Local ({settings.USER_CITY.title()})"
+        return False, f"Offline outside {settings.USER_CITY.title()} ({opp.city or 'Unspecified City'})"
 
     # 3. Internships, Fellowships, Grants are accessible across major hubs / remote
     return True, f"{opp.type.capitalize()} ({opp.city or 'India/Remote'})"
@@ -99,9 +91,10 @@ def score_opportunity(opp: OpportunityItem, user_skills: list[str]) -> dict:
 
     score += min(45, len(matched_skills) * 15)
 
-    # 3. Local Lucknow Offline Bonus
+    # 3. Local city offline bonus
     city_lower = (opp.city or "").lower()
-    if "lucknow" in city_lower or "iiit lucknow" in city_lower:
+    local_city = settings.USER_CITY.strip().lower()
+    if local_city and local_city in city_lower:
         score += 20
 
     final_match_score = min(100, score)
@@ -136,24 +129,17 @@ class OpportunityScoutAgent:
             profile = UserProfile()
 
         far_future = datetime.max.replace(tzinfo=timezone.utc)
+        existing_opps = db.get_all_opportunities()
+        existing_by_id = {o.id: o for o in existing_opps}
+        existing_by_slug = {o.canonical_slug: o for o in existing_opps if o.canonical_slug}
+        existing_by_thread = {o.thread_id: o for o in existing_opps if o.thread_id}
 
-        # Check cached opportunities
-        if not force_refresh:
-            cached_opps = db.get_all_opportunities()
-            if cached_opps:
-                # Re-score cached opportunities if custom skills are provided
-                scored_cached: list[OpportunityItem] = []
-                for opp in cached_opps:
-                    score_opportunity(opp, profile.skills)
-                    if opp.eligible and opp.relevance_score >= profile.min_prize_relevance:
-                        scored_cached.append(opp)
-                scored_cached.sort(key=lambda x: (-(x.match_score or x.relevance_score * 10), x.deadline or far_future))
-                return ScoutReport(total_found=len(scored_cached), matches=scored_cached)
-
-        # 1. Fetch from primary connector
+        # 1. Poll the primary connector on every sync. The ledger and the
+        # existing rows decide what is new; a process-level cache does not.
         raw_opportunities = await self.connector.get_opportunities()
 
-        # 2. Fetch from live public APIs if running in live mode or requested
+        # 2. Fetch from live public APIs in live mode. A forced mock refresh
+        # also exercises the public feeds for demos that opt into them.
         if settings.DATA_SOURCE == "live" or force_refresh:
             try:
                 public_opps = await fetch_all_public_opportunities()
@@ -162,37 +148,45 @@ class OpportunityScoutAgent:
                 logger.debug(f"Public API fetch skipped: {e}")
 
         # 3. Include opportunities mined from emails
-        email_opps = [o for o in db.get_all_opportunities() if o.source_inbox]
-        raw_opportunities.extend(email_opps)
+        raw_opportunities.extend([o for o in existing_opps if o.source_inbox])
 
-        # 4. If still empty, fall back to curated catalog
-        if not raw_opportunities:
+        # 4. In mock mode only, fall back to the curated catalog. In live mode
+        # an empty connector result must stay empty.
+        if not raw_opportunities and settings.DATA_SOURCE != "live":
             raw_opportunities = await MockConnector().get_opportunities()
 
-        scored_matches: list[OpportunityItem] = []
-        seen_ids = set()
-
+        merged: dict[str, OpportunityItem] = {}
         for opp in raw_opportunities:
-            if opp.id in seen_ids:
-                continue
-            seen_ids.add(opp.id)
+            existing = (
+                existing_by_id.get(opp.id)
+                or existing_by_thread.get(opp.thread_id)
+                or existing_by_slug.get(opp.canonical_slug or "")
+            )
 
-            score_data = score_opportunity(opp, profile.skills)
+            # Upstream feeds often omit a deadline on a later poll. Keep the
+            # deadline we already resolved instead of erasing it.
+            if existing and existing.deadline and not opp.deadline:
+                opp.deadline = existing.deadline
+                opp.has_explicit_deadline = existing.has_explicit_deadline
+
+            score_opportunity(opp, profile.skills)
             opp.deadline = to_utc(opp.deadline) if opp.deadline else None
 
-            # Attempt autonomous web search if deadline is missing and opportunity is eligible
             if opp.deadline is None and opp.eligible:
-                resolved_deadline, has_deadline = await deadline_search_tool.resolve_deadline(opp.title)
+                resolved_deadline, _ = await deadline_search_tool.resolve_deadline(opp.title)
                 if resolved_deadline:
                     opp.deadline = resolved_deadline
                     opp.has_explicit_deadline = True
                 else:
                     opp.has_explicit_deadline = False
             else:
-                opp.has_explicit_deadline = (opp.deadline is not None)
+                opp.has_explicit_deadline = opp.deadline is not None
 
-            # Persist all opportunities to DB with eligibility state
-            scored_matches.append(opp)
+            current = merged.get(opp.id)
+            if current is None or (current.deadline is None and opp.deadline is not None):
+                merged[opp.id] = opp
+
+        scored_matches = list(merged.values())
 
         # Save to SQLite
         if scored_matches:

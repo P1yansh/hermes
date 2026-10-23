@@ -81,6 +81,25 @@ def test_compile_radar():
     assert report.items[2].urgency == UrgencyTier.CHILL
     assert "abhi kyu karna" in report.items[2].sloth_message
 
+def test_passed_items_are_not_counted_as_active():
+    now = datetime.now(timezone.utc)
+    report = radar_engine.compile_radar([
+        {
+            "id": "just_passed",
+            "kind": "academic_assignment",
+            "title": "Already submitted",
+            "source": "CS101",
+            "deadline": now - timedelta(hours=1),
+            "has_explicit_deadline": True,
+        }
+    ])
+    assert report.summary.total_active == 0
+    assert report.summary.critical_panic_count == 0
+    assert report.summary.approaching_count == 0
+    assert report.summary.chill_count == 0
+    assert report.items == []
+
+
 def test_watchlist_partitioning():
     now = datetime.now(timezone.utc)
     raw_items = [

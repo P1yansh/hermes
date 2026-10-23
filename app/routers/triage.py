@@ -9,7 +9,7 @@ router = APIRouter(prefix="/api/triage", tags=["Academic Triage"])
 async def get_triaged_tasks():
     """
     Returns triaged academic assignments and emails directly from the SQLite store.
-    Instant read query (< 5ms) decoupled from LLM inference latency.
+    Fast read query decoupled from LLM inference latency.
     """
     tasks = db.get_all_tasks()
     if not tasks and not db.get_all_opportunities():
