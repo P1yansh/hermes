@@ -1,11 +1,12 @@
 ---
 title: "I'm too lazy to check my emails and Classroom stuff, so I built Hermes"
-published: false
+published: true
 description: "Local-first academic triage with Gemma 3 and GBNF: verified deadlines, a no-fake-date watchlist, and a 60-second English briefing. 63 tests."
 tags: devchallenge, hf26challenge, gemma, elevenlabs
+cover_image: https://raw.githubusercontent.com/P1yansh/hermes/main/docs/images/hermes-cover-banner.jpg
 ---
 
-I was registered for the two previous challenges too, but I was too lazy (*binge-watching Black Clover :)*) to submit anything. When I saw this challenge and read the word **"LAZY"**, I knew this one was for me. I got up with a marker in my hand, stared at the whiteboard thinking about what I needed, looked at my phone, and realised I had missed my class (*online, because my college flooded ;-;*), which led me to this idea: what if I build a system that takes in all the stuff from my emails (both personal and college) and Google Classroom, generates an audio summary of it (so I can build this and then completely ignore it)? **THEN I STARTED OVERTHINKING** whether this was a good idea, and finally I gave up and said, **"I need this, so let's make this thing."**
+I was registered for the two previous challenges too, but I was too lazy (*binge watching Black Clover :)*) to submit anything. When I saw this challenge and read the word **"LAZY"**, I knew this one was for me. I got up with a marker in my hand, stared at the whiteboard thinking about what I needed, looked at my phone, and realised I had missed my class (*online, because my college flooded ;-;*), which led me to this idea: what if I build a system that takes in all the stuff from my emails (both personal and college) and Google Classroom, generates an audio summary of it (so I can build this and then completely ignore it)? **THEN I STARTED OVERTHINKING** whether this was a good idea, and finally I gave up and said, **"I need this, so let's make this thing."**
 
 ## What I Built
 
@@ -15,15 +16,15 @@ The loop has five visible outcomes:
 
 - **Panic** for cutoffs under 6 hours.
 - **Approaching** for the next 24 hours.
-- **Chill** for anything beyond that.
+- **Chill** for anything beyond that (exactly, who cares).
 - **Watchlist** for items whose cutoff has not been announced (no guessing dates).
-- **Opportunity matches** for hackathons, fellowships, and internships scored against my stack.
+- **Opportunity matches** for hackathons, fellowships, and internships scored against my stack (gotta grab those achievements).
 
-A local `llama-server` runs `gemma-3-4b-it` at Q4_K_M. The model extracts structure; it does not get to invent a timestamp. A 60-second English briefing turns the radar into audio through ElevenLabs. If the API key is missing, the dashboard switches to browser speech. **The app still works.**
+A local `llama-server` runs `gemma-3-4b-it` at Q4_K_M. The model extracts structure, it does not get to invent a timestamp. A 60-second English briefing turns the radar into audio through ElevenLabs. If the API key is missing, the dashboard switches to browser speech. **The app still works.**
 
 ## Demo & Telemetry Receipts
 
-![Hermes dashboard showing 0 Panic, 1 Approaching, 15 Chill, 15 Watchlist items, 10 Scout matches, and live local telemetry: gemma-3-4b-it at 42.6 tok/s on 4.34 of 6.00 GB VRAM.](https://raw.githubusercontent.com/P1yansh/hermes/fb1c77b/docs/images/hermes-dashboard.png)
+![Hermes dashboard showing 0 Panic, 1 Approaching, 15 Chill, 15 Watchlist items, 10 Scout matches, and live local telemetry: gemma-3-4b-it at 42.6 tok/s on 4.34 of 6.00 GB VRAM.](https://raw.githubusercontent.com/P1yansh/hermes/d5119a9/docs/images/hermes-dashboard.png)
 
 The task rows in that image come from my local Hermes instance. The Render demo uses the mock judge dataset, so its counts will differ. **The telemetry strip is not hardcoded.** It is fetched from `GET /api/telemetry/gemma`, which probes the local llama-server and `nvidia-smi` on every cache miss. I removed the old hardcoded "6 GB VRAM" and "50 tok/s" labels because a screenshot should not be the source of truth.
 
@@ -50,29 +51,29 @@ Two details make those numbers less like a launch slide and more like a measurem
 1. The telemetry endpoint has a 10-second cache, so opening the dashboard does not hammer the GPU.
 2. The test command is `uv run pytest -q -W error::ResourceWarning`. **A green suite with leaked SQLite handles is not green.**
 
-The run in the screenshot shows 16 active items, 15 unconfirmed items on the Watchlist, and 10 ranked opportunities. The counts are not fixed; they move with the sync and the current date.
+The run in the screenshot shows 16 active items, 15 unconfirmed items on the Watchlist, and 10 ranked opportunities. The counts are not fixed, they move with the sync and the current date.
 
 ## Why Open Innovation Matters
 
-### Student privacy: FERPA by architecture
+### Student privacy
 
-A student inbox is not a generic text corpus. It contains roll numbers, grade disputes, medical accommodations, faculty drafts, and enough context to identify a person without a name field. Sending whole email bodies to a closed hosted model makes every one of those messages someone else's data-processing problem.
+Emails containing OTPs, Bank statements, some information regarding my socials and college mails screaming "DO NOT SHARE" shouldn't be on more than one server (I mean google).
 
 Hermes keeps extraction on the laptop. Gmail and Classroom tokens stay on disk. Email bodies go to `llama-server` over `127.0.0.1`, not to an inference vendor. The database is local SQLite. When I enable ElevenLabs, only the generated briefing script leaves the machine, never the raw email. I can disable voice entirely and let the browser speak the same script.
 
-**FERPA is a US law; the design principle travels.** Student data should not leave the student's machine just because a model is convenient.
+**WE KNOW WHAT HAPPENS WHEN EMAILS ARE LEAKED.** Student data should not leave the student's machine just because a model is convenient.
 
 ### The token bill is zero
 
-A hosted model charges per token. Forty emails a day, every day, add up even before retries, classification mistakes, and the occasional 1,500-character body. Gemma 3 4B runs on open weights I already downloaded. **The inference cost is $0.00.** The laptop and the electricity are real; the token meter is not.
+A hosted model charges per token. Forty emails a day, every day, add up even before retries, classification mistakes, and the occasional 1,500-character body. Gemma 3 4B runs on open weights I already downloaded. **The inference cost is 0.** The laptop and the electricity are real tho.
 
-That matters for a student tool. A free tier with a hard quota teaches you to ration your own inbox. **A local model does not.**
+That matters for a student tool (I don't wanna spend my money). A free tier with a hard quota teaches you to ration your own inbox. **A local model does not.**
 
-### It still works when the campus Wi-Fi does not
+### It still works when Wi-Fi is not available
 
-Okay, this one actually saved me during the flood. The last sync sits in SQLite, so the radar, watchlist, and briefing script are still there when the Wi-Fi dies and local inference keeps running. If the network drops halfway through a sync, the ledger doesn't get half-written because the ledger row, the task, and the opportunity all go in one transaction, so a retry starts from a clean state instead of some weird half-synced mess. If llama-server is down, the heuristic fallback takes over instead of throwing a 500 at my face.
+The last sync sits in SQLite, so the radar, watchlist, and briefing script are still there when the Wi-Fi dies and local inference keeps running. If the network drops halfway through a sync, the ledger doesn't get half-written because the ledger row, the task, and the opportunity all go in one transaction, so a retry starts from a clean state instead of some weird half-synced mess. If llama-server is down, the heuristic fallback takes over instead of throwing a 500 at my face.
 
-**University Wi-Fi always dies exactly when a submission window is closing. That's not a hypothetical. That's a law.**
+**Wi-Fi always dies exactly when a submission window is closing. That's not a hypothetical. That's a law.**
 
 ### Open weights are inspectable
 
@@ -227,6 +228,6 @@ The blueprint keeps `ELEVENLABS_API_KEY` in the dashboard with `sync: false`, bi
 
 **The best tool is the one that lets me be bored.** I want a morning that is coffee, one look at three lanes, one tap on a briefing, and then work. *Hermes isn't a second brain. It's a bouncer for my inbox, running on the laptop I already own.* **That's the kind of laziness I can defend.**
 
-*Anyway, the marker is still on my hand. At least now the inbox checks itself. I'm going back to Black Clover.*
+*Anyway, the marker is still on my hand. At least now the inbox checks itself. I'm going to watch mentalist now, bye bye.*
 
 Shoutout to my teammate @attlar.
