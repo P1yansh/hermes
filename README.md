@@ -144,7 +144,7 @@ Run the test suite with `uv`:
 uv run pytest -v
 ```
 
-The suite runs 61 tests in under a second. It covers SQLite WAL mode and connection cleanup, atomic ledger/task writes, missing-deadline handling, IST relative-date anchoring, Stage-1 triage filtering, opportunity matching, urgency radar bands, ElevenLabs failure paths, and HTTP endpoints. No test calls llama-server, ElevenLabs, or a public API; network clients are patched in `tests/conftest.py`.
+The suite runs 63 tests in under a second. It covers SQLite WAL mode and connection cleanup, atomic ledger/task writes, missing-deadline handling, IST relative-date anchoring, Stage-1 triage filtering, opportunity matching, urgency radar bands, ElevenLabs failure paths, and HTTP endpoints. No test calls llama-server, ElevenLabs, or a public API; network clients are patched in `tests/conftest.py`.
 
 To fail the run on leaked SQLite handles:
 
