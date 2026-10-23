@@ -3,7 +3,7 @@ title: "I'm too lazy to check my emails and Classroom stuff, so I built Hermes"
 published: true
 description: "Local-first academic triage with Gemma 3 and GBNF: verified deadlines, a no-fake-date watchlist, and a 60-second English briefing. 63 tests."
 tags: devchallenge, hf26challenge, gemma, elevenlabs
-cover_image: https://raw.githubusercontent.com/P1yansh/hermes/main/docs/images/hermes-cover-banner.jpg
+cover_image: https://raw.githubusercontent.com/P1yansh/hermes/4c6524d/docs/images/hermes-cover-banner.jpg
 ---
 
 I was registered for the two previous challenges too, but I was too lazy (*binge watching Black Clover :)*) to submit anything. When I saw this challenge and read the word **"LAZY"**, I knew this one was for me. I got up with a marker in my hand, stared at the whiteboard thinking about what I needed, looked at my phone, and realised I had missed my class (*online, because my college flooded ;-;*), which led me to this idea: what if I build a system that takes in all the stuff from my emails (both personal and college) and Google Classroom, generates an audio summary of it (so I can build this and then completely ignore it)? **THEN I STARTED OVERTHINKING** whether this was a good idea, and finally I gave up and said, **"I need this, so let's make this thing."**
