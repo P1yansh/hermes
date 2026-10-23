@@ -1,7 +1,9 @@
+import logging
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.main import app
+from app.main import app, _SuppressLocalProbeAccessLog
 from app.services import elevenlabs
 
 @pytest.mark.asyncio
@@ -21,6 +23,35 @@ async def test_health_endpoint():
         res = await client.get("/health")
         assert res.status_code == 200
         assert res.json() == {"status": "healthy"}
+
+
+def _access_record(method, path, status, client="127.0.0.1:12345"):
+    return logging.LogRecord(
+        "uvicorn.access",
+        logging.INFO,
+        "",
+        0,
+        '%s - "%s %s HTTP/%s" %d',
+        (client, method, path, "1.1", status),
+        None,
+    )
+
+
+def test_local_probe_access_log_is_suppressed():
+    log_filter = _SuppressLocalProbeAccessLog()
+
+    assert not log_filter.filter(_access_record("GET", "/v1/models", 404))
+    assert not log_filter.filter(_access_record("GET", "/v1/models?probe=1", 404))
+    assert not log_filter.filter(_access_record("GET", "/health", 200))
+
+    assert log_filter.filter(_access_record("GET", "/v1/models", 200))
+    assert log_filter.filter(_access_record("GET", "/health", 500))
+    assert log_filter.filter(_access_record("POST", "/v1/models", 404))
+    assert log_filter.filter(_access_record("GET", "/api/health", 200))
+    assert log_filter.filter(_access_record("GET", "/v1/models", 404, client="10.0.0.5:12345"))
+
+    access_logger = logging.getLogger("uvicorn.access")
+    assert any(isinstance(existing, _SuppressLocalProbeAccessLog) for existing in access_logger.filters)
 
 @pytest.mark.asyncio
 async def test_sync_api():

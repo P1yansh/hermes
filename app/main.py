@@ -15,6 +15,49 @@ from app.services.sync_service import sync_service
 
 logger = logging.getLogger(__name__)
 
+
+class _SuppressLocalProbeAccessLog(logging.Filter):
+    """Hide the local OpenCode health/model probe from uvicorn's access log.
+
+    OpenCode polls /health and /v1/models on common local ports. Hermes is not
+    an OpenAI-compatible model server, so /v1/models correctly returns 404. The
+    response stays a 404; only the repetitive access-log line is suppressed.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.name != "uvicorn.access" or not isinstance(record.args, tuple):
+            return True
+        if len(record.args) < 5:
+            return True
+
+        client, method, path, _http_version, status = record.args[:5]
+        client = str(client)
+        if not client.startswith(("127.0.0.1", "::1", "[::1]")):
+            return True
+        if str(method).upper() != "GET":
+            return True
+
+        path = str(path).split("?", 1)[0]
+        try:
+            status = int(status)
+        except (TypeError, ValueError):
+            return True
+
+        if path == "/v1/models" and status == 404:
+            return False
+        if path == "/health" and status == 200:
+            return False
+        return True
+
+
+def _install_access_log_filter():
+    access_logger = logging.getLogger("uvicorn.access")
+    if not any(isinstance(existing, _SuppressLocalProbeAccessLog) for existing in access_logger.filters):
+        access_logger.addFilter(_SuppressLocalProbeAccessLog())
+
+
+_install_access_log_filter()
+
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 
