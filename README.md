@@ -182,4 +182,7 @@ The free Render instance has no GPU, so `llama-server` telemetry reports `offlin
 
 ## License
 
-MIT
+MIT © 2026 P1yansh
+
+
+
